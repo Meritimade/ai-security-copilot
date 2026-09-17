@@ -1,0 +1,2371 @@
+{
+  "version": "3.0",
+  "dataset_mode": "LABELLED",
+  "dataset_type": "network_flow",
+  "candidate_groups": 2,
+  "validation_model": "gpt-5.6",
+  "validation_methodology": [
+    "MITRE candidates are treated as hypotheses rather than confirmed mappings.",
+    "Semantic similarity is not treated as proof.",
+    "Dataset labels are not treated as proof of ATT&CK techniques.",
+    "Security telemetry is evaluated against each candidate independently.",
+    "Observed evidence is distinguished from inferred behaviour.",
+    "Missing telemetry is explicitly identified.",
+    "The validator may reject all candidates.",
+    "Network-flow telemetry is not assumed to contain application-layer authentication evidence.",
+    "Final ATT&CK assessments are based on available evidence rather than forced mappings."
+  ],
+  "findings": [
+    {
+      "finding_id": "finding_1",
+      "finding": {
+        "label": "FTP-BruteForce",
+        "classification": "attack",
+        "record_count": 193360,
+        "percentage_of_dataset": 18.4404,
+        "associated_destination_ports": {
+          "21": 193360
+        },
+        "associated_protocols": {
+          "6": 193360
+        },
+        "behavioural_statistics": {
+          "Flow Duration": {
+            "mean": 3.8031961108812578,
+            "median": 2.0,
+            "minimum": 0,
+            "maximum": 63,
+            "p95": 19.0,
+            "p99": 26.0
+          },
+          "Tot Fwd Pkts": {
+            "mean": 1.0,
+            "median": 1.0,
+            "minimum": 1,
+            "maximum": 1,
+            "p95": 1.0,
+            "p99": 1.0
+          },
+          "Tot Bwd Pkts": {
+            "mean": 1.0,
+            "median": 1.0,
+            "minimum": 1,
+            "maximum": 1,
+            "p95": 1.0,
+            "p99": 1.0
+          },
+          "Flow Pkts/s": {
+            "mean": 1189160.5102337685,
+            "median": 1000000.0,
+            "minimum": 31746.0317460317,
+            "maximum": 2000000.0,
+            "p95": 2000000.0,
+            "p99": 2000000.0
+          },
+          "Fwd Pkts/s": {
+            "mean": 594561.8051710282,
+            "median": 500000.0,
+            "minimum": 0.0,
+            "maximum": 1000000.0,
+            "p95": 1000000.0,
+            "p99": 1000000.0
+          },
+          "Bwd Pkts/s": {
+            "mean": 594561.8051710282,
+            "median": 500000.0,
+            "minimum": 0.0,
+            "maximum": 1000000.0,
+            "p95": 1000000.0,
+            "p99": 1000000.0
+          },
+          "TotLen Fwd Pkts": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "TotLen Bwd Pkts": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Flow Byts/s": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Fwd Pkt Len Max": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Bwd Pkt Len Max": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Pkt Len Max": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Fwd Pkt Len Mean": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Bwd Pkt Len Mean": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "Pkt Len Mean": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "SYN Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "ACK Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "RST Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "FIN Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          }
+        },
+        "temporal_evidence": {
+          "records_with_valid_timestamps": 193360,
+          "observation_start": "2018-02-14 10:33:26",
+          "observation_end": "2018-02-14 12:10:31",
+          "observation_duration_seconds": 5825.0,
+          "observation_duration_minutes": 97.08333333333333,
+          "activity_by_hour": {
+            "10": 52900,
+            "11": 119490,
+            "12": 20970
+          },
+          "peak_hour": 11,
+          "peak_hour_record_count": 119490,
+          "peak_hour_percentage": 61.7966
+        },
+        "comparative_behavioural_evidence": {
+          "available": true,
+          "comparison_baseline": "Benign",
+          "features": {
+            "Flow Duration": {
+              "finding_mean": 3.8031961108812578,
+              "baseline_mean": 13392269.04923452,
+              "absolute_difference": -13392265.246038409,
+              "percentage_difference": -99.99997160155536
+            },
+            "Tot Fwd Pkts": {
+              "finding_mean": 1.0,
+              "baseline_mean": 6.163149451560091,
+              "absolute_difference": -5.163149451560091,
+              "percentage_difference": -83.774529437269
+            },
+            "Tot Bwd Pkts": {
+              "finding_mean": 1.0,
+              "baseline_mean": 7.902507560427249,
+              "absolute_difference": -6.902507560427249,
+              "percentage_difference": -87.34578875941075
+            },
+            "Flow Pkts/s": {
+              "finding_mean": 1189160.5102337685,
+              "baseline_mean": 30975.819386558316,
+              "absolute_difference": 1158184.6908472101,
+              "percentage_difference": 3738.996138871452
+            },
+            "Fwd Pkts/s": {
+              "finding_mean": 594561.8051710282,
+              "baseline_mean": 27585.586315292967,
+              "absolute_difference": 566976.2188557353,
+              "percentage_difference": 2055.3350303140505
+            },
+            "Bwd Pkts/s": {
+              "finding_mean": 594561.8051710282,
+              "baseline_mean": 3213.088136612484,
+              "absolute_difference": 591348.7170344158,
+              "percentage_difference": 18404.3727371222
+            },
+            "TotLen Fwd Pkts": {
+              "finding_mean": 0.0,
+              "baseline_mean": 431.8251552902021,
+              "absolute_difference": -431.8251552902021,
+              "percentage_difference": -100.0
+            },
+            "TotLen Bwd Pkts": {
+              "finding_mean": 0.0,
+              "baseline_mean": 6727.517172168042,
+              "absolute_difference": -6727.517172168042,
+              "percentage_difference": -100.0
+            },
+            "Flow Byts/s": {
+              "finding_mean": 0.0,
+              "baseline_mean": 303234.64274310565,
+              "absolute_difference": -303234.64274310565,
+              "percentage_difference": -100.0
+            },
+            "Fwd Pkt Len Max": {
+              "finding_mean": 0.0,
+              "baseline_mean": 184.25122187588468,
+              "absolute_difference": -184.25122187588468,
+              "percentage_difference": -100.0
+            },
+            "Bwd Pkt Len Max": {
+              "finding_mean": 0.0,
+              "baseline_mean": 385.11391193506495,
+              "absolute_difference": -385.11391193506495,
+              "percentage_difference": -100.0
+            },
+            "Pkt Len Max": {
+              "finding_mean": 0.0,
+              "baseline_mean": 392.99458974478034,
+              "absolute_difference": -392.99458974478034,
+              "percentage_difference": -100.0
+            },
+            "Fwd Pkt Len Mean": {
+              "finding_mean": 0.0,
+              "baseline_mean": 48.79434270139747,
+              "absolute_difference": -48.79434270139747,
+              "percentage_difference": -100.0
+            },
+            "Bwd Pkt Len Mean": {
+              "finding_mean": 0.0,
+              "baseline_mean": 128.07472951012716,
+              "absolute_difference": -128.07472951012716,
+              "percentage_difference": -100.0
+            },
+            "Pkt Len Mean": {
+              "finding_mean": 0.0,
+              "baseline_mean": 84.67312585415822,
+              "absolute_difference": -84.67312585415822,
+              "percentage_difference": -100.0
+            },
+            "SYN Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.041769207379636054,
+              "absolute_difference": -0.041769207379636054,
+              "percentage_difference": -100.0
+            },
+            "ACK Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.2733991291466266,
+              "absolute_difference": -0.2733991291466266,
+              "percentage_difference": -100.0
+            },
+            "RST Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.062202956467816324,
+              "absolute_difference": -0.062202956467816324,
+              "percentage_difference": -100.0
+            },
+            "FIN Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.0056109678994519345,
+              "absolute_difference": -0.0056109678994519345,
+              "percentage_difference": -100.0
+            }
+          }
+        }
+      },
+      "retrieval_evidence": {
+        "finding": {
+          "label": "FTP-BruteForce",
+          "classification": "attack",
+          "record_count": 193360,
+          "percentage_of_dataset": 18.4404,
+          "associated_destination_ports": {
+            "21": 193360
+          },
+          "associated_protocols": {
+            "6": 193360
+          },
+          "behavioural_statistics": {
+            "Flow Duration": {
+              "mean": 3.8031961108812578,
+              "median": 2.0,
+              "minimum": 0,
+              "maximum": 63,
+              "p95": 19.0,
+              "p99": 26.0
+            },
+            "Tot Fwd Pkts": {
+              "mean": 1.0,
+              "median": 1.0,
+              "minimum": 1,
+              "maximum": 1,
+              "p95": 1.0,
+              "p99": 1.0
+            },
+            "Tot Bwd Pkts": {
+              "mean": 1.0,
+              "median": 1.0,
+              "minimum": 1,
+              "maximum": 1,
+              "p95": 1.0,
+              "p99": 1.0
+            },
+            "Flow Pkts/s": {
+              "mean": 1189160.5102337685,
+              "median": 1000000.0,
+              "minimum": 31746.0317460317,
+              "maximum": 2000000.0,
+              "p95": 2000000.0,
+              "p99": 2000000.0
+            },
+            "Fwd Pkts/s": {
+              "mean": 594561.8051710282,
+              "median": 500000.0,
+              "minimum": 0.0,
+              "maximum": 1000000.0,
+              "p95": 1000000.0,
+              "p99": 1000000.0
+            },
+            "Bwd Pkts/s": {
+              "mean": 594561.8051710282,
+              "median": 500000.0,
+              "minimum": 0.0,
+              "maximum": 1000000.0,
+              "p95": 1000000.0,
+              "p99": 1000000.0
+            },
+            "TotLen Fwd Pkts": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "TotLen Bwd Pkts": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Flow Byts/s": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Fwd Pkt Len Max": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Bwd Pkt Len Max": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Pkt Len Max": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Fwd Pkt Len Mean": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Bwd Pkt Len Mean": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "Pkt Len Mean": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "SYN Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "ACK Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "RST Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "FIN Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            }
+          },
+          "temporal_evidence": {
+            "records_with_valid_timestamps": 193360,
+            "observation_start": "2018-02-14 10:33:26",
+            "observation_end": "2018-02-14 12:10:31",
+            "observation_duration_seconds": 5825.0,
+            "observation_duration_minutes": 97.08333333333333,
+            "activity_by_hour": {
+              "10": 52900,
+              "11": 119490,
+              "12": 20970
+            },
+            "peak_hour": 11,
+            "peak_hour_record_count": 119490,
+            "peak_hour_percentage": 61.7966
+          },
+          "comparative_behavioural_evidence": {
+            "available": true,
+            "comparison_baseline": "Benign",
+            "features": {
+              "Flow Duration": {
+                "finding_mean": 3.8031961108812578,
+                "baseline_mean": 13392269.04923452,
+                "absolute_difference": -13392265.246038409,
+                "percentage_difference": -99.99997160155536
+              },
+              "Tot Fwd Pkts": {
+                "finding_mean": 1.0,
+                "baseline_mean": 6.163149451560091,
+                "absolute_difference": -5.163149451560091,
+                "percentage_difference": -83.774529437269
+              },
+              "Tot Bwd Pkts": {
+                "finding_mean": 1.0,
+                "baseline_mean": 7.902507560427249,
+                "absolute_difference": -6.902507560427249,
+                "percentage_difference": -87.34578875941075
+              },
+              "Flow Pkts/s": {
+                "finding_mean": 1189160.5102337685,
+                "baseline_mean": 30975.819386558316,
+                "absolute_difference": 1158184.6908472101,
+                "percentage_difference": 3738.996138871452
+              },
+              "Fwd Pkts/s": {
+                "finding_mean": 594561.8051710282,
+                "baseline_mean": 27585.586315292967,
+                "absolute_difference": 566976.2188557353,
+                "percentage_difference": 2055.3350303140505
+              },
+              "Bwd Pkts/s": {
+                "finding_mean": 594561.8051710282,
+                "baseline_mean": 3213.088136612484,
+                "absolute_difference": 591348.7170344158,
+                "percentage_difference": 18404.3727371222
+              },
+              "TotLen Fwd Pkts": {
+                "finding_mean": 0.0,
+                "baseline_mean": 431.8251552902021,
+                "absolute_difference": -431.8251552902021,
+                "percentage_difference": -100.0
+              },
+              "TotLen Bwd Pkts": {
+                "finding_mean": 0.0,
+                "baseline_mean": 6727.517172168042,
+                "absolute_difference": -6727.517172168042,
+                "percentage_difference": -100.0
+              },
+              "Flow Byts/s": {
+                "finding_mean": 0.0,
+                "baseline_mean": 303234.64274310565,
+                "absolute_difference": -303234.64274310565,
+                "percentage_difference": -100.0
+              },
+              "Fwd Pkt Len Max": {
+                "finding_mean": 0.0,
+                "baseline_mean": 184.25122187588468,
+                "absolute_difference": -184.25122187588468,
+                "percentage_difference": -100.0
+              },
+              "Bwd Pkt Len Max": {
+                "finding_mean": 0.0,
+                "baseline_mean": 385.11391193506495,
+                "absolute_difference": -385.11391193506495,
+                "percentage_difference": -100.0
+              },
+              "Pkt Len Max": {
+                "finding_mean": 0.0,
+                "baseline_mean": 392.99458974478034,
+                "absolute_difference": -392.99458974478034,
+                "percentage_difference": -100.0
+              },
+              "Fwd Pkt Len Mean": {
+                "finding_mean": 0.0,
+                "baseline_mean": 48.79434270139747,
+                "absolute_difference": -48.79434270139747,
+                "percentage_difference": -100.0
+              },
+              "Bwd Pkt Len Mean": {
+                "finding_mean": 0.0,
+                "baseline_mean": 128.07472951012716,
+                "absolute_difference": -128.07472951012716,
+                "percentage_difference": -100.0
+              },
+              "Pkt Len Mean": {
+                "finding_mean": 0.0,
+                "baseline_mean": 84.67312585415822,
+                "absolute_difference": -84.67312585415822,
+                "percentage_difference": -100.0
+              },
+              "SYN Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.041769207379636054,
+                "absolute_difference": -0.041769207379636054,
+                "percentage_difference": -100.0
+              },
+              "ACK Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.2733991291466266,
+                "absolute_difference": -0.2733991291466266,
+                "percentage_difference": -100.0
+              },
+              "RST Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.062202956467816324,
+                "absolute_difference": -0.062202956467816324,
+                "percentage_difference": -100.0
+              },
+              "FIN Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.0056109678994519345,
+                "absolute_difference": -0.0056109678994519345,
+                "percentage_difference": -100.0
+              }
+            }
+          }
+        },
+        "evidence_limitations": [
+          "Source identity information was not detected.",
+          "Destination identity information was not detected.",
+          "Source port information was not detected.",
+          "Action or outcome information was not detected.",
+          "User identity information was not detected.",
+          "Host identity information was not detected.",
+          "Process information was not detected.",
+          "Command-line information was not detected.",
+          "Event or alert identifiers were not detected."
+        ]
+      },
+      "retrieval_metadata": {
+        "candidate_count": 30,
+        "retrieval_method": {
+          "primary": "semantic_similarity",
+          "secondary": "structured_evidence_token_overlap",
+          "semantic_weight": 1.0,
+          "evidence_weight": 0.0,
+          "broad_initial_pool": 100,
+          "validation_required": true
+        }
+      },
+      "evaluations": [
+        {
+          "technique_id": "T1592",
+          "technique_name": "Gather Victim Host Information",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "193360 TCP flow records targeted destination port 21 over approximately 97 minutes."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Victim host identities",
+            "Host attributes or configuration data",
+            "Application-layer requests or responses",
+            "Evidence that information was collected"
+          ],
+          "reasoning": "The telemetry shows only highly repetitive traffic associated with port 21. It does not show collection of victim host information."
+        },
+        {
+          "technique_id": "T1595.003",
+          "technique_name": "Wordlist Scanning",
+          "status": "NOT_SUPPORTED",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "A large volume of short TCP flow records was associated with destination port 21.",
+            "Each record reports one forward and one backward packet with zero payload bytes."
+          ],
+          "inferred_behaviour": [
+            "The volume may represent automated activity."
+          ],
+          "missing_evidence": [
+            "Application-layer requests containing candidate words or paths",
+            "A changing sequence consistent with a wordlist",
+            "Target identities",
+            "Scanning results or responses"
+          ],
+          "reasoning": "High-volume automated traffic does not establish wordlist scanning. No words, resource names, commands, or application payloads are visible."
+        },
+        {
+          "technique_id": "T1592.002",
+          "technique_name": "Software",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "All reported flows used TCP destination port 21."
+          ],
+          "inferred_behaviour": [
+            "Port 21 is conventionally associated with an FTP service, but the actual service is unverified."
+          ],
+          "missing_evidence": [
+            "Service banners",
+            "Software names and versions",
+            "Host inventory data",
+            "Application-layer responses"
+          ],
+          "reasoning": "A destination port alone does not demonstrate that adversaries gathered software information."
+        },
+        {
+          "technique_id": "T1070.007",
+          "technique_name": "Clear Network Connection History and Configurations",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Network-flow statistics describe traffic to destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Host commands or processes",
+            "Deleted connection histories",
+            "Modified network configurations",
+            "Before-and-after host state"
+          ],
+          "reasoning": "There is no host telemetry or evidence of clearing network history or modifying network configurations."
+        },
+        {
+          "technique_id": "T1071.002",
+          "technique_name": "File Transfer Protocols",
+          "status": "POSSIBLE",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "All 193360 records used TCP destination port 21.",
+            "Port 21 is conventionally assigned to FTP control traffic.",
+            "The records contain zero reported payload bytes and only one packet in each direction."
+          ],
+          "inferred_behaviour": [
+            "The traffic may have been directed at an FTP service."
+          ],
+          "missing_evidence": [
+            "FTP protocol identification",
+            "FTP commands or response codes",
+            "Transferred files or data-channel traffic",
+            "Evidence that FTP was used for command and control"
+          ],
+          "reasoning": "The port association makes FTP plausible, but flow telemetry does not confirm FTP application traffic. This ATT&CK technique specifically concerns use of file-transfer protocols for command and control, which is not established."
+        },
+        {
+          "technique_id": "T1590.002",
+          "technique_name": "DNS",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The reported traffic used TCP destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "DNS traffic",
+            "DNS queries or responses",
+            "Domain records",
+            "Evidence of DNS-based victim network reconnaissance"
+          ],
+          "reasoning": "No DNS activity or DNS-derived information is present."
+        },
+        {
+          "technique_id": "T1001.001",
+          "technique_name": "Junk Data",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Forward and backward payload lengths are reported as zero for the finding.",
+            "Flow byte rates are reported as zero."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Payload content",
+            "Extraneous data embedded in command-and-control traffic",
+            "A confirmed command-and-control channel"
+          ],
+          "reasoning": "No transmitted payload data is represented, so the addition of junk data to conceal command-and-control traffic is not supported."
+        },
+        {
+          "technique_id": "T1591.003",
+          "technique_name": "Identify Business Tempo",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Traffic occurred from 10:33:26 through 12:10:31, with 61.8 percent of records during hour 11."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Repeated observations across business cycles",
+            "Organizational schedules",
+            "Operational events or staffing patterns",
+            "Evidence that timing information was collected or analyzed"
+          ],
+          "reasoning": "A concentration of network records during one observation window does not demonstrate identification of an organization's business tempo."
+        },
+        {
+          "technique_id": "T1040",
+          "technique_name": "Network Sniffing",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The evidence consists of aggregated network-flow records."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Packet-capture activity",
+            "Promiscuous-mode interfaces",
+            "Sniffing tools or processes",
+            "Evidence that an adversary intercepted network traffic"
+          ],
+          "reasoning": "The existence of network telemetry does not mean an adversary performed network sniffing."
+        },
+        {
+          "technique_id": "T1590.001",
+          "technique_name": "Domain Properties",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No domain names or domain-related fields are provided."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Domain names",
+            "WHOIS or registrar records",
+            "Certificates or DNS records",
+            "Evidence of domain-property collection"
+          ],
+          "reasoning": "The evidence contains no domain properties or activity that would obtain them."
+        },
+        {
+          "technique_id": "T1592.001",
+          "technique_name": "Hardware",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Only aggregate flow characteristics and destination port information are available."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Device types",
+            "Hardware models",
+            "MAC addresses or hardware fingerprints",
+            "Evidence of hardware reconnaissance"
+          ],
+          "reasoning": "No victim hardware information was observed or shown to have been gathered."
+        },
+        {
+          "technique_id": "T1589",
+          "technique_name": "Gather Victim Identity Information",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The supplied evidence explicitly lacks user and source identity information."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Names, accounts, email addresses, or credentials",
+            "Identity-provider events",
+            "Evidence that victim identities were collected"
+          ],
+          "reasoning": "No identity information or identity-gathering activity is present."
+        },
+        {
+          "technique_id": "T1071.003",
+          "technique_name": "Mail Protocols",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "All traffic was associated with TCP destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "SMTP, IMAP, or POP protocol identification",
+            "Mail commands or messages",
+            "Evidence of mail-based command and control"
+          ],
+          "reasoning": "No mail-protocol traffic or mail-based command-and-control behavior is shown."
+        },
+        {
+          "technique_id": "T1678",
+          "technique_name": "Delay Execution",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Flow records span approximately 97 minutes."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Process execution telemetry",
+            "Sleep or timer calls",
+            "Scheduled execution",
+            "Evidence that malware deliberately delayed execution"
+          ],
+          "reasoning": "The timing of network records does not demonstrate deliberate delay of code execution."
+        },
+        {
+          "technique_id": "T1590.005",
+          "technique_name": "IP Addresses",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Source and destination identity information, including addresses, is not provided."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Victim IP addresses",
+            "Address-enumeration activity",
+            "External address lookups",
+            "Evidence that IP address information was gathered"
+          ],
+          "reasoning": "The telemetry does not expose IP addresses or show that victim address information was collected."
+        },
+        {
+          "technique_id": "T1016.001",
+          "technique_name": "Internet Connection Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "External or internal address context is not available.",
+            "Network-flow records targeted destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Host commands checking internet connectivity",
+            "Requests to external address-discovery services",
+            "Process or command-line telemetry",
+            "Evidence of system-level connection discovery"
+          ],
+          "reasoning": "Network traffic alone does not establish that a compromised host performed Internet Connection Discovery."
+        },
+        {
+          "technique_id": "T1654",
+          "technique_name": "Log Enumeration",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No host, process, command, or file information is provided."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Log-file access",
+            "Commands enumerating logs",
+            "Event-log API activity",
+            "Process telemetry"
+          ],
+          "reasoning": "There is no evidence of identifying or enumerating system logs."
+        },
+        {
+          "technique_id": "T1589.001",
+          "technique_name": "Credentials",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Traffic is associated with TCP destination port 21.",
+            "No user identities, authentication outcomes, or application payloads are available."
+          ],
+          "inferred_behaviour": [
+            "The finding label suggests credential guessing, but the label is not telemetry and is not used as proof."
+          ],
+          "missing_evidence": [
+            "Usernames or passwords",
+            "Credential acquisition activity",
+            "Authentication requests and outcomes",
+            "Evidence that credentials were gathered for use in targeting"
+          ],
+          "reasoning": "Neither credential content nor credential-gathering behavior is established. Repetitive port 21 flows do not prove that credentials were obtained."
+        },
+        {
+          "technique_id": "T1592.004",
+          "technique_name": "Client Configurations",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Only aggregate network-flow statistics are available."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Client software settings",
+            "Browser or application configurations",
+            "Configuration files or fingerprints",
+            "Evidence of configuration collection"
+          ],
+          "reasoning": "No victim client configuration information is visible."
+        },
+        {
+          "technique_id": "T1205.001",
+          "technique_name": "Port Knocking",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Every record has the same reported destination port, TCP port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "A deliberate sequence across multiple ports",
+            "A service-state change following a sequence",
+            "Source identities needed to correlate knocking attempts",
+            "Host firewall or listener events"
+          ],
+          "reasoning": "Port knocking normally requires a defined connection sequence used to trigger access. The evidence shows only one destination port and no resulting state change."
+        },
+        {
+          "technique_id": "T1595.001",
+          "technique_name": "Scanning IP Blocks",
+          "status": "NOT_SUPPORTED",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "193360 short TCP records targeted destination port 21."
+          ],
+          "inferred_behaviour": [
+            "The high record volume could be consistent with automated probing."
+          ],
+          "missing_evidence": [
+            "Destination IP addresses",
+            "Multiple sequential or related IP targets",
+            "Address-range coverage",
+            "Scan responses or service-discovery results"
+          ],
+          "reasoning": "Without destination addresses, it is impossible to establish that an IP block or range was scanned. Volume alone is insufficient."
+        },
+        {
+          "technique_id": "T1205",
+          "technique_name": "Traffic Signaling",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The flow records are repetitive and all use destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "A recognizable signaling sequence or crafted packet pattern",
+            "A hidden service activated by the traffic",
+            "Payload or flag-level signaling content",
+            "Correlated host-side response"
+          ],
+          "reasoning": "Repetitive traffic does not by itself demonstrate traffic signaling used to trigger adversary functionality."
+        },
+        {
+          "technique_id": "T1590",
+          "technique_name": "Gather Victim Network Information",
+          "status": "NOT_SUPPORTED",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "A large number of records was associated with a single destination port.",
+            "Network identities and addresses are absent."
+          ],
+          "inferred_behaviour": [
+            "Automated interaction with a network service is plausible."
+          ],
+          "missing_evidence": [
+            "Victim addresses, topology, DNS, or service inventory",
+            "Reconnaissance queries",
+            "Evidence that network information was collected",
+            "Identifiable reconnaissance targets"
+          ],
+          "reasoning": "The records do not establish collection of victim network information. Even if the traffic was probing, the required target and collection details are unavailable."
+        },
+        {
+          "technique_id": "T1592.003",
+          "technique_name": "Firmware",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No device or host attributes are present."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Firmware names or versions",
+            "Device banners",
+            "Hardware identifiers",
+            "Evidence of firmware reconnaissance"
+          ],
+          "reasoning": "There is no evidence that firmware information was gathered."
+        },
+        {
+          "technique_id": "T1083",
+          "technique_name": "File and Directory Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The dataset contains network-flow statistics with zero reported payload bytes."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Filesystem commands",
+            "File or directory names",
+            "Host process telemetry",
+            "FTP directory-listing commands or responses"
+          ],
+          "reasoning": "No local or remote file and directory enumeration is visible. Port 21 traffic alone does not prove FTP directory listing."
+        },
+        {
+          "technique_id": "T1571",
+          "technique_name": "Non-Standard Port",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "All records used destination port 21.",
+            "Port 21 is the standard control port conventionally associated with FTP."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Identification of an application protocol inconsistent with port 21",
+            "Confirmed command-and-control traffic",
+            "Protocol inspection showing use of a non-standard port"
+          ],
+          "reasoning": "The only observed port is standard for the suspected FTP protocol. No application protocol running on an unusual port is established."
+        },
+        {
+          "technique_id": "T1590.004",
+          "technique_name": "Network Topology",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Source and destination identities are unavailable."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Multiple identifiable hosts or network segments",
+            "Routing information",
+            "Traceroute-like activity",
+            "Evidence of topology mapping"
+          ],
+          "reasoning": "The evidence cannot establish discovery or collection of network topology."
+        },
+        {
+          "technique_id": "T1197",
+          "technique_name": "BITS Jobs",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Only network-flow records to TCP destination port 21 are supplied."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Windows BITS process or service events",
+            "BITS job creation or modification",
+            "Command-line activity",
+            "BITS transfer records"
+          ],
+          "reasoning": "No Windows BITS activity is shown."
+        },
+        {
+          "technique_id": "T1016",
+          "technique_name": "System Network Configuration Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The evidence contains no endpoint process or command information."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Commands enumerating interfaces, routes, DNS, or adapters",
+            "System configuration API activity",
+            "Endpoint execution telemetry",
+            "Discovered configuration output"
+          ],
+          "reasoning": "Observed network traffic does not demonstrate system network configuration discovery."
+        },
+        {
+          "technique_id": "T1596",
+          "technique_name": "Search Open Technical Databases",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Traffic is limited to records associated with TCP destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Queries to WHOIS, certificate, scanning, or public technical databases",
+            "Search terms or API requests",
+            "Identified external database services",
+            "Collected search results"
+          ],
+          "reasoning": "No interaction with an open technical database or collection of database results is visible."
+        }
+      ],
+      "finding_assessment": {
+        "overall_assessment": "The evidence establishes a very large burst of minimal TCP flow records directed to destination port 21, but it does not establish FTP application sessions, authentication attempts, password guessing, successful or failed logins, file transfer, command and control, or reconnaissance. The FTP-BruteForce label is contextual only and cannot validate those behaviors. Of the supplied candidates, only T1071.002 is plausible due to the conventional port association, and even that remains unconfirmed and lacks evidence of command-and-control use.",
+        "observed_behaviour": [
+          "193360 TCP records used destination port 21.",
+          "The records occurred between 2018-02-14 10:33:26 and 12:10:31.",
+          "Each record reports one forward and one backward packet.",
+          "All reported payload-length and byte-rate measurements are zero.",
+          "The records are extremely short relative to the benign baseline.",
+          "No source, destination, user, host, process, command, action, or outcome identities are available."
+        ],
+        "inferred_behaviour": [
+          "The high volume and repetition may indicate automated activity.",
+          "The destination port is consistent with targeting a nominal FTP control service.",
+          "The unusual zero-byte, two-packet flow shape may reflect connection-level activity or flow-generation artifacts, but its exact meaning is not established."
+        ],
+        "important_evidence_gaps": [
+          "Source and destination IP addresses",
+          "Application-layer protocol identification",
+          "FTP commands and response codes",
+          "Usernames, passwords, or other credential content",
+          "Successful and failed authentication outcomes",
+          "TCP flag fidelity and connection-state information",
+          "Packet payloads",
+          "Host, process, and command-line telemetry",
+          "Evidence of file transfer or command-and-control activity"
+        ],
+        "overall_confidence": "HIGH"
+      }
+    },
+    {
+      "finding_id": "finding_2",
+      "finding": {
+        "label": "SSH-Bruteforce",
+        "classification": "attack",
+        "record_count": 187589,
+        "percentage_of_dataset": 17.89,
+        "associated_destination_ports": {
+          "22": 187559,
+          "21": 30
+        },
+        "associated_protocols": {
+          "6": 187589
+        },
+        "behavioural_statistics": {
+          "Flow Duration": {
+            "mean": 183349.68250803617,
+            "median": 115876.0,
+            "minimum": 1,
+            "maximum": 567266,
+            "p95": 395992.6,
+            "p99": 416425.24
+          },
+          "Tot Fwd Pkts": {
+            "mean": 11.723651173576275,
+            "median": 19.0,
+            "minimum": 1,
+            "maximum": 28,
+            "p95": 24.0,
+            "p99": 25.0
+          },
+          "Tot Bwd Pkts": {
+            "mean": 11.153292570459888,
+            "median": 19.0,
+            "minimum": 0,
+            "maximum": 22,
+            "p95": 22.0,
+            "p99": 22.0
+          },
+          "Flow Pkts/s": {
+            "mean": 158521.13263161771,
+            "median": 351.2204912069,
+            "minimum": 51.0529674537,
+            "maximum": 2000000.0,
+            "p95": 400000.0,
+            "p99": 500000.0
+          },
+          "Fwd Pkts/s": {
+            "mean": 79297.78269491656,
+            "median": 163.6888928902,
+            "minimum": 29.8264526548,
+            "maximum": 1000000.0,
+            "p95": 200000.0,
+            "p99": 250000.0
+          },
+          "Bwd Pkts/s": {
+            "mean": 79223.34993670136,
+            "median": 183.1608568598,
+            "minimum": 0.0,
+            "maximum": 1000000.0,
+            "p95": 200000.0,
+            "p99": 250000.0
+          },
+          "TotLen Fwd Pkts": {
+            "mean": 967.3242674144007,
+            "median": 1912.0,
+            "minimum": 0,
+            "maximum": 2024,
+            "p95": 1960.0,
+            "p99": 2008.0
+          },
+          "TotLen Bwd Pkts": {
+            "mean": 1332.7980318675402,
+            "median": 2665.0,
+            "minimum": 0,
+            "maximum": 2665,
+            "p95": 2665.0,
+            "p99": 2665.0
+          },
+          "Flow Byts/s": {
+            "mean": 6333.739039202769,
+            "median": 9321.32702576,
+            "minimum": 0.0,
+            "maximum": 47005.9665748994,
+            "p95": 14253.3562592627,
+            "p99": 16143.653633736716
+          },
+          "Fwd Pkt Len Max": {
+            "mean": 320.0801752768019,
+            "median": 640.0,
+            "minimum": 0,
+            "maximum": 640,
+            "p95": 640.0,
+            "p99": 640.0
+          },
+          "Bwd Pkt Len Max": {
+            "mean": 488.12226729712296,
+            "median": 976.0,
+            "minimum": 0,
+            "maximum": 976,
+            "p95": 976.0,
+            "p99": 976.0
+          },
+          "Pkt Len Max": {
+            "mean": 488.12226729712296,
+            "median": 976.0,
+            "minimum": 0,
+            "maximum": 976,
+            "p95": 976.0,
+            "p99": 976.0
+          },
+          "Fwd Pkt Len Mean": {
+            "mean": 43.201710946127974,
+            "median": 70.8148148148,
+            "minimum": 0.0,
+            "maximum": 105.6842105263,
+            "p95": 90.5454545455,
+            "p99": 93.3333333333
+          },
+          "Bwd Pkt Len Mean": {
+            "mean": 62.69196750822932,
+            "median": 121.1363636364,
+            "minimum": 0.0,
+            "maximum": 221.4444444444,
+            "p95": 133.25,
+            "p99": 133.25
+          },
+          "Pkt Len Mean": {
+            "mean": 51.444689690536684,
+            "median": 93.4081632653,
+            "minimum": 0.0,
+            "maximum": 135.0,
+            "p95": 106.8139534884,
+            "p99": 107.9302325581
+          },
+          "SYN Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "ACK Flag Cnt": {
+            "mean": 0.4997148020406314,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 1,
+            "p95": 1.0,
+            "p99": 1.0
+          },
+          "RST Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          },
+          "FIN Flag Cnt": {
+            "mean": 0.0,
+            "median": 0.0,
+            "minimum": 0,
+            "maximum": 0,
+            "p95": 0.0,
+            "p99": 0.0
+          }
+        },
+        "temporal_evidence": {
+          "records_with_valid_timestamps": 187589,
+          "observation_start": "2018-02-14 02:01:21",
+          "observation_end": "2018-02-14 03:32:30",
+          "observation_duration_seconds": 5469.0,
+          "observation_duration_minutes": 91.15,
+          "activity_by_hour": {
+            "2": 120348,
+            "3": 67241
+          },
+          "peak_hour": 2,
+          "peak_hour_record_count": 120348,
+          "peak_hour_percentage": 64.1551
+        },
+        "comparative_behavioural_evidence": {
+          "available": true,
+          "comparison_baseline": "Benign",
+          "features": {
+            "Flow Duration": {
+              "finding_mean": 183349.68250803617,
+              "baseline_mean": 13392269.04923452,
+              "absolute_difference": -13208919.366726484,
+              "percentage_difference": -98.63092892000616
+            },
+            "Tot Fwd Pkts": {
+              "finding_mean": 11.723651173576275,
+              "baseline_mean": 6.163149451560091,
+              "absolute_difference": 5.560501722016184,
+              "percentage_difference": 90.22175700458865
+            },
+            "Tot Bwd Pkts": {
+              "finding_mean": 11.153292570459888,
+              "baseline_mean": 7.902507560427249,
+              "absolute_difference": 3.250785010032639,
+              "percentage_difference": 41.13612021469405
+            },
+            "Flow Pkts/s": {
+              "finding_mean": 158521.13263161771,
+              "baseline_mean": 30975.819386558316,
+              "absolute_difference": 127545.3132450594,
+              "percentage_difference": 411.75767347225224
+            },
+            "Fwd Pkts/s": {
+              "finding_mean": 79297.78269491656,
+              "baseline_mean": 27585.586315292967,
+              "absolute_difference": 51712.196379623594,
+              "percentage_difference": 187.46092901043488
+            },
+            "Bwd Pkts/s": {
+              "finding_mean": 79223.34993670136,
+              "baseline_mean": 3213.088136612484,
+              "absolute_difference": 76010.26180008888,
+              "percentage_difference": 2365.645091834471
+            },
+            "TotLen Fwd Pkts": {
+              "finding_mean": 967.3242674144007,
+              "baseline_mean": 431.8251552902021,
+              "absolute_difference": 535.4991121241985,
+              "percentage_difference": 124.00831808057218
+            },
+            "TotLen Bwd Pkts": {
+              "finding_mean": 1332.7980318675402,
+              "baseline_mean": 6727.517172168042,
+              "absolute_difference": -5394.719140300502,
+              "percentage_difference": -80.18885722980583
+            },
+            "Flow Byts/s": {
+              "finding_mean": 6333.739039202769,
+              "baseline_mean": 303234.64274310565,
+              "absolute_difference": -296900.9037039029,
+              "percentage_difference": -97.91127458858038
+            },
+            "Fwd Pkt Len Max": {
+              "finding_mean": 320.0801752768019,
+              "baseline_mean": 184.25122187588468,
+              "absolute_difference": 135.82895340091724,
+              "percentage_difference": 73.71943155547395
+            },
+            "Bwd Pkt Len Max": {
+              "finding_mean": 488.12226729712296,
+              "baseline_mean": 385.11391193506495,
+              "absolute_difference": 103.00835536205801,
+              "percentage_difference": 26.74750305551842
+            },
+            "Pkt Len Max": {
+              "finding_mean": 488.12226729712296,
+              "baseline_mean": 392.99458974478034,
+              "absolute_difference": 95.12767755234262,
+              "percentage_difference": 24.20584914772509
+            },
+            "Fwd Pkt Len Mean": {
+              "finding_mean": 43.201710946127974,
+              "baseline_mean": 48.79434270139747,
+              "absolute_difference": -5.592631755269494,
+              "percentage_difference": -11.461639701746245
+            },
+            "Bwd Pkt Len Mean": {
+              "finding_mean": 62.69196750822932,
+              "baseline_mean": 128.07472951012716,
+              "absolute_difference": -65.38276200189785,
+              "percentage_difference": -51.05047830433082
+            },
+            "Pkt Len Mean": {
+              "finding_mean": 51.444689690536684,
+              "baseline_mean": 84.67312585415822,
+              "absolute_difference": -33.22843616362153,
+              "percentage_difference": -39.24319059727935
+            },
+            "SYN Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.041769207379636054,
+              "absolute_difference": -0.041769207379636054,
+              "percentage_difference": -100.0
+            },
+            "ACK Flag Cnt": {
+              "finding_mean": 0.4997148020406314,
+              "baseline_mean": 0.2733991291466266,
+              "absolute_difference": 0.22631567289400478,
+              "percentage_difference": 82.7784907729642
+            },
+            "RST Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.062202956467816324,
+              "absolute_difference": -0.062202956467816324,
+              "percentage_difference": -100.0
+            },
+            "FIN Flag Cnt": {
+              "finding_mean": 0.0,
+              "baseline_mean": 0.0056109678994519345,
+              "absolute_difference": -0.0056109678994519345,
+              "percentage_difference": -100.0
+            }
+          }
+        }
+      },
+      "retrieval_evidence": {
+        "finding": {
+          "label": "SSH-Bruteforce",
+          "classification": "attack",
+          "record_count": 187589,
+          "percentage_of_dataset": 17.89,
+          "associated_destination_ports": {
+            "22": 187559,
+            "21": 30
+          },
+          "associated_protocols": {
+            "6": 187589
+          },
+          "behavioural_statistics": {
+            "Flow Duration": {
+              "mean": 183349.68250803617,
+              "median": 115876.0,
+              "minimum": 1,
+              "maximum": 567266,
+              "p95": 395992.6,
+              "p99": 416425.24
+            },
+            "Tot Fwd Pkts": {
+              "mean": 11.723651173576275,
+              "median": 19.0,
+              "minimum": 1,
+              "maximum": 28,
+              "p95": 24.0,
+              "p99": 25.0
+            },
+            "Tot Bwd Pkts": {
+              "mean": 11.153292570459888,
+              "median": 19.0,
+              "minimum": 0,
+              "maximum": 22,
+              "p95": 22.0,
+              "p99": 22.0
+            },
+            "Flow Pkts/s": {
+              "mean": 158521.13263161771,
+              "median": 351.2204912069,
+              "minimum": 51.0529674537,
+              "maximum": 2000000.0,
+              "p95": 400000.0,
+              "p99": 500000.0
+            },
+            "Fwd Pkts/s": {
+              "mean": 79297.78269491656,
+              "median": 163.6888928902,
+              "minimum": 29.8264526548,
+              "maximum": 1000000.0,
+              "p95": 200000.0,
+              "p99": 250000.0
+            },
+            "Bwd Pkts/s": {
+              "mean": 79223.34993670136,
+              "median": 183.1608568598,
+              "minimum": 0.0,
+              "maximum": 1000000.0,
+              "p95": 200000.0,
+              "p99": 250000.0
+            },
+            "TotLen Fwd Pkts": {
+              "mean": 967.3242674144007,
+              "median": 1912.0,
+              "minimum": 0,
+              "maximum": 2024,
+              "p95": 1960.0,
+              "p99": 2008.0
+            },
+            "TotLen Bwd Pkts": {
+              "mean": 1332.7980318675402,
+              "median": 2665.0,
+              "minimum": 0,
+              "maximum": 2665,
+              "p95": 2665.0,
+              "p99": 2665.0
+            },
+            "Flow Byts/s": {
+              "mean": 6333.739039202769,
+              "median": 9321.32702576,
+              "minimum": 0.0,
+              "maximum": 47005.9665748994,
+              "p95": 14253.3562592627,
+              "p99": 16143.653633736716
+            },
+            "Fwd Pkt Len Max": {
+              "mean": 320.0801752768019,
+              "median": 640.0,
+              "minimum": 0,
+              "maximum": 640,
+              "p95": 640.0,
+              "p99": 640.0
+            },
+            "Bwd Pkt Len Max": {
+              "mean": 488.12226729712296,
+              "median": 976.0,
+              "minimum": 0,
+              "maximum": 976,
+              "p95": 976.0,
+              "p99": 976.0
+            },
+            "Pkt Len Max": {
+              "mean": 488.12226729712296,
+              "median": 976.0,
+              "minimum": 0,
+              "maximum": 976,
+              "p95": 976.0,
+              "p99": 976.0
+            },
+            "Fwd Pkt Len Mean": {
+              "mean": 43.201710946127974,
+              "median": 70.8148148148,
+              "minimum": 0.0,
+              "maximum": 105.6842105263,
+              "p95": 90.5454545455,
+              "p99": 93.3333333333
+            },
+            "Bwd Pkt Len Mean": {
+              "mean": 62.69196750822932,
+              "median": 121.1363636364,
+              "minimum": 0.0,
+              "maximum": 221.4444444444,
+              "p95": 133.25,
+              "p99": 133.25
+            },
+            "Pkt Len Mean": {
+              "mean": 51.444689690536684,
+              "median": 93.4081632653,
+              "minimum": 0.0,
+              "maximum": 135.0,
+              "p95": 106.8139534884,
+              "p99": 107.9302325581
+            },
+            "SYN Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "ACK Flag Cnt": {
+              "mean": 0.4997148020406314,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 1,
+              "p95": 1.0,
+              "p99": 1.0
+            },
+            "RST Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            },
+            "FIN Flag Cnt": {
+              "mean": 0.0,
+              "median": 0.0,
+              "minimum": 0,
+              "maximum": 0,
+              "p95": 0.0,
+              "p99": 0.0
+            }
+          },
+          "temporal_evidence": {
+            "records_with_valid_timestamps": 187589,
+            "observation_start": "2018-02-14 02:01:21",
+            "observation_end": "2018-02-14 03:32:30",
+            "observation_duration_seconds": 5469.0,
+            "observation_duration_minutes": 91.15,
+            "activity_by_hour": {
+              "2": 120348,
+              "3": 67241
+            },
+            "peak_hour": 2,
+            "peak_hour_record_count": 120348,
+            "peak_hour_percentage": 64.1551
+          },
+          "comparative_behavioural_evidence": {
+            "available": true,
+            "comparison_baseline": "Benign",
+            "features": {
+              "Flow Duration": {
+                "finding_mean": 183349.68250803617,
+                "baseline_mean": 13392269.04923452,
+                "absolute_difference": -13208919.366726484,
+                "percentage_difference": -98.63092892000616
+              },
+              "Tot Fwd Pkts": {
+                "finding_mean": 11.723651173576275,
+                "baseline_mean": 6.163149451560091,
+                "absolute_difference": 5.560501722016184,
+                "percentage_difference": 90.22175700458865
+              },
+              "Tot Bwd Pkts": {
+                "finding_mean": 11.153292570459888,
+                "baseline_mean": 7.902507560427249,
+                "absolute_difference": 3.250785010032639,
+                "percentage_difference": 41.13612021469405
+              },
+              "Flow Pkts/s": {
+                "finding_mean": 158521.13263161771,
+                "baseline_mean": 30975.819386558316,
+                "absolute_difference": 127545.3132450594,
+                "percentage_difference": 411.75767347225224
+              },
+              "Fwd Pkts/s": {
+                "finding_mean": 79297.78269491656,
+                "baseline_mean": 27585.586315292967,
+                "absolute_difference": 51712.196379623594,
+                "percentage_difference": 187.46092901043488
+              },
+              "Bwd Pkts/s": {
+                "finding_mean": 79223.34993670136,
+                "baseline_mean": 3213.088136612484,
+                "absolute_difference": 76010.26180008888,
+                "percentage_difference": 2365.645091834471
+              },
+              "TotLen Fwd Pkts": {
+                "finding_mean": 967.3242674144007,
+                "baseline_mean": 431.8251552902021,
+                "absolute_difference": 535.4991121241985,
+                "percentage_difference": 124.00831808057218
+              },
+              "TotLen Bwd Pkts": {
+                "finding_mean": 1332.7980318675402,
+                "baseline_mean": 6727.517172168042,
+                "absolute_difference": -5394.719140300502,
+                "percentage_difference": -80.18885722980583
+              },
+              "Flow Byts/s": {
+                "finding_mean": 6333.739039202769,
+                "baseline_mean": 303234.64274310565,
+                "absolute_difference": -296900.9037039029,
+                "percentage_difference": -97.91127458858038
+              },
+              "Fwd Pkt Len Max": {
+                "finding_mean": 320.0801752768019,
+                "baseline_mean": 184.25122187588468,
+                "absolute_difference": 135.82895340091724,
+                "percentage_difference": 73.71943155547395
+              },
+              "Bwd Pkt Len Max": {
+                "finding_mean": 488.12226729712296,
+                "baseline_mean": 385.11391193506495,
+                "absolute_difference": 103.00835536205801,
+                "percentage_difference": 26.74750305551842
+              },
+              "Pkt Len Max": {
+                "finding_mean": 488.12226729712296,
+                "baseline_mean": 392.99458974478034,
+                "absolute_difference": 95.12767755234262,
+                "percentage_difference": 24.20584914772509
+              },
+              "Fwd Pkt Len Mean": {
+                "finding_mean": 43.201710946127974,
+                "baseline_mean": 48.79434270139747,
+                "absolute_difference": -5.592631755269494,
+                "percentage_difference": -11.461639701746245
+              },
+              "Bwd Pkt Len Mean": {
+                "finding_mean": 62.69196750822932,
+                "baseline_mean": 128.07472951012716,
+                "absolute_difference": -65.38276200189785,
+                "percentage_difference": -51.05047830433082
+              },
+              "Pkt Len Mean": {
+                "finding_mean": 51.444689690536684,
+                "baseline_mean": 84.67312585415822,
+                "absolute_difference": -33.22843616362153,
+                "percentage_difference": -39.24319059727935
+              },
+              "SYN Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.041769207379636054,
+                "absolute_difference": -0.041769207379636054,
+                "percentage_difference": -100.0
+              },
+              "ACK Flag Cnt": {
+                "finding_mean": 0.4997148020406314,
+                "baseline_mean": 0.2733991291466266,
+                "absolute_difference": 0.22631567289400478,
+                "percentage_difference": 82.7784907729642
+              },
+              "RST Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.062202956467816324,
+                "absolute_difference": -0.062202956467816324,
+                "percentage_difference": -100.0
+              },
+              "FIN Flag Cnt": {
+                "finding_mean": 0.0,
+                "baseline_mean": 0.0056109678994519345,
+                "absolute_difference": -0.0056109678994519345,
+                "percentage_difference": -100.0
+              }
+            }
+          }
+        },
+        "evidence_limitations": [
+          "Source identity information was not detected.",
+          "Destination identity information was not detected.",
+          "Source port information was not detected.",
+          "Action or outcome information was not detected.",
+          "User identity information was not detected.",
+          "Host identity information was not detected.",
+          "Process information was not detected.",
+          "Command-line information was not detected.",
+          "Event or alert identifiers were not detected."
+        ]
+      },
+      "retrieval_metadata": {
+        "candidate_count": 30,
+        "retrieval_method": {
+          "primary": "semantic_similarity",
+          "secondary": "structured_evidence_token_overlap",
+          "semantic_weight": 1.0,
+          "evidence_weight": 0.0,
+          "broad_initial_pool": 100,
+          "validation_required": true
+        }
+      },
+      "evaluations": [
+        {
+          "technique_id": "T1070.007",
+          "technique_name": "Clear Network Connection History and Configurations",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "187589 TCP flow records were observed, predominantly to destination port 22."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Host commands or processes that clear connection history",
+            "Deletion or modification of network configuration artifacts",
+            "Host audit or file-system telemetry"
+          ],
+          "reasoning": "Network flows show communication activity but do not show clearing of network histories or configurations. No host-level evidence supports this technique."
+        },
+        {
+          "technique_id": "T1592",
+          "technique_name": "Gather Victim Host Information",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "High-volume TCP traffic was concentrated on destination port 22 over approximately 91 minutes."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Queries or responses containing victim host information",
+            "Host identity or system attributes",
+            "Evidence of reconnaissance information collection"
+          ],
+          "reasoning": "The telemetry contains traffic statistics but no indication that victim host information was gathered."
+        },
+        {
+          "technique_id": "T1595.003",
+          "technique_name": "Wordlist Scanning",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "187559 TCP flow records used destination port 22 and 30 used destination port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Requested paths, hostnames, service probes, or other candidate values",
+            "Evidence that a wordlist drove scanning",
+            "Source and destination identities showing systematic enumeration"
+          ],
+          "reasoning": "High flow volume does not establish wordlist-based scanning. No application requests, candidate terms, or enumeration results are available."
+        },
+        {
+          "technique_id": "T1654",
+          "technique_name": "Log Enumeration",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Only aggregate network-flow characteristics and destination ports are available."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Commands or API calls enumerating logs",
+            "File or directory access involving log locations",
+            "Host process telemetry"
+          ],
+          "reasoning": "Network-flow telemetry does not demonstrate enumeration of log files or logging facilities."
+        },
+        {
+          "technique_id": "T1592.002",
+          "technique_name": "Software",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Traffic was predominantly directed to TCP port 22."
+          ],
+          "inferred_behaviour": [
+            "A service commonly associated with port 22 may have been contacted."
+          ],
+          "missing_evidence": [
+            "Service banners or software versions",
+            "Application-layer fingerprinting",
+            "Evidence that software information was collected"
+          ],
+          "reasoning": "A destination port alone does not establish that the victim's software or software version was gathered."
+        },
+        {
+          "technique_id": "T1040",
+          "technique_name": "Network Sniffing",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The dataset records network flows but contains no process or packet-capture activity."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Packet-capture processes or commands",
+            "Promiscuous-mode interface activity",
+            "Captured packet content or credential interception"
+          ],
+          "reasoning": "The existence of network telemetry does not mean an adversary performed network sniffing."
+        },
+        {
+          "technique_id": "T1589",
+          "technique_name": "Gather Victim Identity Information",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No user, source, destination, or host identity information was detected."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Collected names, accounts, email addresses, or other victim identities",
+            "Identity-related queries or responses",
+            "Evidence of reconnaissance collection"
+          ],
+          "reasoning": "The telemetry does not contain or demonstrate collection of victim identity information."
+        },
+        {
+          "technique_id": "T1592.001",
+          "technique_name": "Hardware",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The evidence consists of network-flow statistics and destination ports."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Hardware model, architecture, device type, or capacity information",
+            "Queries or responses exposing hardware properties",
+            "Evidence that hardware information was collected"
+          ],
+          "reasoning": "No victim hardware information is present or shown to have been gathered."
+        },
+        {
+          "technique_id": "T1678",
+          "technique_name": "Delay Execution",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Flow activity occurred continuously within an approximately 91-minute observation period."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Process execution timestamps demonstrating intentional delay",
+            "Sleep, timeout, scheduling, or conditional execution commands",
+            "Endpoint execution telemetry"
+          ],
+          "reasoning": "Flow timing and duration do not demonstrate that code execution was intentionally delayed."
+        },
+        {
+          "technique_id": "T1110",
+          "technique_name": "Brute Force",
+          "status": "POSSIBLE",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "187589 TCP flow records occurred over approximately 91 minutes.",
+            "187559 records were directed to destination port 22.",
+            "The flows were much shorter on average and had substantially higher packet rates than the benign baseline.",
+            "Bidirectional packets were present in many flows."
+          ],
+          "inferred_behaviour": [
+            "The concentration of numerous short interactions on a port commonly associated with SSH is consistent with automated repeated service interaction.",
+            "Repeated authentication attempts are a plausible explanation but are not directly observed."
+          ],
+          "missing_evidence": [
+            "Authentication request and failure events",
+            "Usernames or credential attempts",
+            "Source and destination identities needed to establish repeated attempts against accounts or hosts",
+            "Successful or failed login outcomes",
+            "Application-layer SSH telemetry"
+          ],
+          "reasoning": "The flow pattern is compatible with brute-force activity, but network-flow statistics do not establish that authentication attempts occurred. The finding label is not used as proof."
+        },
+        {
+          "technique_id": "T1589.001",
+          "technique_name": "Credentials",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No user identity, credential, or application-level information was detected."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Evidence of credential collection from public or private sources",
+            "Collected username or password material",
+            "Reconnaissance activity involving credential acquisition"
+          ],
+          "reasoning": "Traffic to port 22 does not establish that victim credentials were gathered."
+        },
+        {
+          "technique_id": "T1082",
+          "technique_name": "System Information Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No host, process, command-line, or application-event telemetry was available."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Commands querying operating system or host details",
+            "System information output",
+            "Endpoint process execution"
+          ],
+          "reasoning": "No post-compromise system-information discovery behavior is visible in the network flows."
+        },
+        {
+          "technique_id": "T1110.001",
+          "technique_name": "Password Guessing",
+          "status": "POSSIBLE",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "187559 TCP flows were directed to destination port 22 during approximately 91 minutes.",
+            "The finding flows had shorter durations and higher packet rates than the benign baseline.",
+            "Many flows contained traffic in both directions."
+          ],
+          "inferred_behaviour": [
+            "Automated password guessing against a service commonly associated with SSH could produce this pattern."
+          ],
+          "missing_evidence": [
+            "Authentication attempts and failures",
+            "Submitted usernames or passwords",
+            "Repeated attempts attributable to a source and destination",
+            "Login success or failure outcomes",
+            "SSH server or authentication logs"
+          ],
+          "reasoning": "Password guessing is plausible, but the telemetry cannot distinguish authentication attempts from other repeated port-22 interactions."
+        },
+        {
+          "technique_id": "T1592.004",
+          "technique_name": "Client Configurations",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Only flow-level traffic statistics and destination-port aggregates are present."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Client configuration values",
+            "Browser, VPN, email, or other client-profile information",
+            "Evidence that configuration information was gathered"
+          ],
+          "reasoning": "No victim client configuration data or collection behavior is demonstrated."
+        },
+        {
+          "technique_id": "T1205",
+          "technique_name": "Traffic Signaling",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Traffic was overwhelmingly concentrated on destination port 22, with 30 records on port 21."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "A distinctive packet, connection, or port sequence used as a trigger",
+            "Evidence that traffic caused a hidden service or action to activate",
+            "Source and destination identities for correlating signaling behavior"
+          ],
+          "reasoning": "The observed traffic volume does not establish the use of network traffic as a covert activation signal."
+        },
+        {
+          "technique_id": "T1083",
+          "technique_name": "File and Directory Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No file-system, process, command-line, or application-command data was detected."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Directory listing or file-search commands",
+            "File-system access events",
+            "Remote session commands or outputs"
+          ],
+          "reasoning": "Network-flow statistics do not demonstrate file or directory discovery."
+        },
+        {
+          "technique_id": "T1016",
+          "technique_name": "System Network Configuration Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "The evidence describes network communications but not commands executed on a host."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Commands querying interfaces, routes, DNS settings, or network configuration",
+            "Configuration output",
+            "Endpoint process telemetry"
+          ],
+          "reasoning": "Observing network traffic is not evidence that an adversary queried a system's network configuration."
+        },
+        {
+          "technique_id": "T1590.001",
+          "technique_name": "Domain Properties",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No domain names, registration records, or DNS content were provided."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "WHOIS, certificate, or domain-registration queries",
+            "Domain ownership or infrastructure properties",
+            "Evidence of domain-focused reconnaissance"
+          ],
+          "reasoning": "The flow data provides no evidence that domain properties were gathered."
+        },
+        {
+          "technique_id": "T1571",
+          "technique_name": "Non-Standard Port",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "187559 flows used destination port 22 and 30 used destination port 21."
+          ],
+          "inferred_behaviour": [
+            "Ports 22 and 21 are conventionally associated with SSH and FTP control traffic, respectively."
+          ],
+          "missing_evidence": [
+            "Application-layer protocol identification",
+            "Evidence that a protocol operated on a non-default port",
+            "Command-and-control context"
+          ],
+          "reasoning": "The observed ports are standard for their commonly associated services. Without protocol identification, use of a non-standard port is not established."
+        },
+        {
+          "technique_id": "T1049",
+          "technique_name": "System Network Connections Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Network connections were recorded externally as flow telemetry."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Commands or APIs enumerating active connections on a compromised system",
+            "Process execution associated with connection discovery",
+            "Command output listing sockets or sessions"
+          ],
+          "reasoning": "Externally observing connections does not show that an adversary enumerated system network connections."
+        },
+        {
+          "technique_id": "T1591.003",
+          "technique_name": "Identify Business Tempo",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Activity was observed between 02:01 and 03:32, with 64.1551 percent of records in hour 2."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Long-term observations of organizational schedules or operational cycles",
+            "Evidence that timing information was collected for reconnaissance",
+            "Business or staffing context"
+          ],
+          "reasoning": "A short period of traffic concentration does not establish reconnaissance into the victim's business tempo."
+        },
+        {
+          "technique_id": "T1590.002",
+          "technique_name": "DNS",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Only TCP traffic to destination ports 22 and 21 was reported."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "DNS traffic or DNS query content",
+            "Resolved hostnames, records, or DNS infrastructure details",
+            "Evidence that DNS information was gathered"
+          ],
+          "reasoning": "No DNS traffic or DNS reconnaissance evidence is present."
+        },
+        {
+          "technique_id": "T1071.002",
+          "technique_name": "File Transfer Protocols",
+          "status": "NOT_SUPPORTED",
+          "confidence": "MEDIUM",
+          "observed_evidence": [
+            "Thirty of 187589 TCP flow records used destination port 21."
+          ],
+          "inferred_behaviour": [
+            "The 30 port-21 flows could involve an FTP control service."
+          ],
+          "missing_evidence": [
+            "Application-layer confirmation of FTP or another file-transfer protocol",
+            "FTP commands, data channels, or transferred files",
+            "Command-and-control purpose",
+            "Source and destination identities"
+          ],
+          "reasoning": "A small number of flows to port 21 does not prove file transfer, FTP command use, or use of a file-transfer protocol for command and control."
+        },
+        {
+          "technique_id": "T1001.001",
+          "technique_name": "Junk Data",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Packet and byte counts are available, but packet payloads are not."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Payload content showing meaningless or padding data",
+            "Comparison demonstrating deliberate insertion of junk data",
+            "Command-and-control communications"
+          ],
+          "reasoning": "Traffic volume and packet lengths cannot establish that junk data was added to obfuscate communications."
+        },
+        {
+          "technique_id": "T1205.001",
+          "technique_name": "Port Knocking",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "Traffic was concentrated on destination port 22, with only 30 records on port 21.",
+            "Source and destination identities were not available."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "An ordered sequence of connection attempts across ports",
+            "Per-source and per-destination correlation",
+            "Evidence that a port sequence opened or activated a service"
+          ],
+          "reasoning": "The aggregate port counts do not show a port-knocking sequence or a triggered service."
+        },
+        {
+          "technique_id": "T1110.003",
+          "technique_name": "Password Spraying",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "A large number of TCP flows targeted destination port 22."
+          ],
+          "inferred_behaviour": [
+            "The traffic could include automated authentication activity, but this is not directly observed."
+          ],
+          "missing_evidence": [
+            "Multiple usernames or accounts",
+            "Evidence that one or a small number of passwords were tried across many accounts",
+            "Authentication failures and timing",
+            "Source and destination identities"
+          ],
+          "reasoning": "Even if authentication attempts occurred, the telemetry cannot establish the account-to-password pattern required for password spraying."
+        },
+        {
+          "technique_id": "T1552",
+          "technique_name": "Unsecured Credentials",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No file, registry, process, command, user, or credential content was detected."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Credentials stored in files, scripts, configuration, memory, or other unsecured locations",
+            "Commands or access events used to search for credentials",
+            "Recovered credential material"
+          ],
+          "reasoning": "Repeated network connections do not demonstrate discovery or use of unsecured credentials."
+        },
+        {
+          "technique_id": "T1110.004",
+          "technique_name": "Credential Stuffing",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "High-volume TCP traffic was directed predominantly to destination port 22."
+          ],
+          "inferred_behaviour": [
+            "Automated service interaction is plausible."
+          ],
+          "missing_evidence": [
+            "Known or previously compromised username-password pairs",
+            "Authentication submissions and outcomes",
+            "Evidence that distinct credential pairs were reused",
+            "User, source, and destination identities"
+          ],
+          "reasoning": "The telemetry cannot show that stolen credential pairs were used, which is required to distinguish credential stuffing from other activity."
+        },
+        {
+          "technique_id": "T1027",
+          "technique_name": "Obfuscated Files or Information",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No files, scripts, commands, or payload content were available."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Encoded, encrypted, packed, or otherwise obfuscated artifacts",
+            "Commands performing deobfuscation",
+            "Payload inspection or endpoint artifact telemetry"
+          ],
+          "reasoning": "Flow-level traffic characteristics do not demonstrate obfuscated files or information."
+        },
+        {
+          "technique_id": "T1033",
+          "technique_name": "System Owner/User Discovery",
+          "status": "NOT_SUPPORTED",
+          "confidence": "HIGH",
+          "observed_evidence": [
+            "No user identity, process, command-line, or host-event information was detected."
+          ],
+          "inferred_behaviour": [],
+          "missing_evidence": [
+            "Commands querying the current user or system accounts",
+            "User-enumeration output",
+            "Endpoint or remote-session command telemetry"
+          ],
+          "reasoning": "The evidence does not show discovery of a system owner or user."
+        }
+      ],
+      "finding_assessment": {
+        "overall_assessment": "The telemetry establishes a very large concentration of short, bidirectional TCP flows to destination port 22 over approximately 91 minutes. This is anomalous relative to the benign baseline and is consistent with automated interaction with a service commonly associated with SSH. Brute force and password guessing are therefore possible, but neither is confirmed because the flow data does not expose authentication requests, usernames, passwords, outcomes, or source/destination identities. The contextual SSH-Bruteforce label is not sufficient to elevate these mappings to supported.",
+        "observed_behaviour": [
+          "187589 TCP flow records were observed between 2018-02-14 02:01:21 and 2018-02-14 03:32:30.",
+          "187559 records used destination port 22 and 30 used destination port 21.",
+          "The finding represented 17.89 percent of the dataset.",
+          "Finding flows were substantially shorter on average than the benign baseline.",
+          "Packet rates were substantially higher than the benign baseline.",
+          "Many flows contained packets in both directions.",
+          "No source identity, destination identity, user identity, host identity, process, command-line, action, or outcome information was detected."
+        ],
+        "inferred_behaviour": [
+          "The traffic likely represents high-volume automated interaction with a port-22 service.",
+          "Repeated SSH authentication or password-guessing activity is plausible but not directly demonstrated.",
+          "The 30 port-21 flows may involve an FTP-associated service, but FTP use and file transfer are not established."
+        ],
+        "important_evidence_gaps": [
+          "SSH or authentication server logs showing login attempts and failures",
+          "Usernames, passwords, or authentication methods attempted",
+          "Successful and failed login outcomes",
+          "Source and destination IP addresses for correlating repeated attempts",
+          "Application-layer protocol confirmation",
+          "Endpoint process, command-line, and host audit telemetry",
+          "Per-flow TCP establishment details, particularly because the reported SYN count is zero for all records"
+        ],
+        "overall_confidence": "MEDIUM"
+      }
+    }
+  ]
+}
