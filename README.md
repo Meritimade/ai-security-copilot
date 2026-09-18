@@ -4,7 +4,7 @@ AI-assisted security analytics and investigation platform for analysing security
 
 ## Project Overview
 
-AI Security Copilot is an MSc Applied Cyber Security project designed to demonstrate how security analytics, behavioural analysis, MITRE ATT&CK knowledge, evidence validation and generative AI can be combined into a practical security investigation workflow.
+AI Security Copilot is a project designed to demonstrate how security analytics, behavioural analysis, MITRE ATT&CK knowledge, evidence validation and generative AI can be combined into a practical security investigation workflow.
 
 The system is designed to analyse security data without relying on fixed attack-specific mappings.
 
