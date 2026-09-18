@@ -50,4 +50,3 @@ analysis_status.json
 # Generated MITRE analysis outputs
 MITRE/mitre_candidates.json
 MITRE/mitre_evaluated.json
-MITRE/mitre_technique_index.json
