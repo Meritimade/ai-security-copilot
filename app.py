@@ -1,11 +1,23 @@
 from pathlib import Path
 from collections import Counter
 import json
+import os
+import subprocess
+import sys
 
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
+
+from multi_format_analyser import (
+    SUPPORTED_EXTENSIONS,
+    classify_file,
+    safe_filename,
+    convert_structured_to_csv,
+    analyse_uploaded_file,
+)
+from report_export import build_filtered_package, EXPORTERS
 
 
 # ============================================================
@@ -22,7 +34,12 @@ EVIDENCE_FILE = BASE_DIR / "security_evidence.json"
 SCHEMA_FILE = BASE_DIR / "security_schema.json"
 ALERT_FILE = BASE_DIR / "security_alerts.json"
 MITRE_FILE = BASE_DIR / "MITRE" / "mitre_evaluated.json"
+MITRE_CANDIDATES_FILE = BASE_DIR / "MITRE" / "mitre_candidates.json"
 REPORT_FILE = BASE_DIR / "ai_security_report.txt"
+UPLOAD_DIR = BASE_DIR / "Uploads"
+DOCUMENT_ANALYSIS_FILE = BASE_DIR / "document_analysis.json"
+ANALYSIS_HISTORY_FILE = BASE_DIR / "analysis_history.json"
+ANALYSIS_STATUS_FILE = BASE_DIR / "analysis_status.json"
 
 
 # ============================================================
@@ -31,7 +48,6 @@ REPORT_FILE = BASE_DIR / "ai_security_report.txt"
 
 st.set_page_config(
     page_title="AI Security Copilot",
-    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -59,8 +75,6 @@ GREY = "#94a3b8"
 
 GREEN = "#25e878"
 CYAN = "#18d6c2"
-PURPLE = "#b832e8"
-
 
 SEVERITY_COLOURS = {
     "Critical": RED,
@@ -176,7 +190,7 @@ hr {{
 
 
 # ============================================================
-# LOAD JSON
+# JSON LOADER
 # ============================================================
 
 def load_json(path):
@@ -185,28 +199,139 @@ def load_json(path):
         return {}
 
     try:
-
-        with open(
-            path,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
+        with open(path, "r", encoding="utf-8") as file:
             return json.load(file)
 
     except Exception:
-
         return {}
 
 
-evidence = load_json(EVIDENCE_FILE)
-schema = load_json(SCHEMA_FILE)
-alerts_data = load_json(ALERT_FILE)
-mitre_data = load_json(MITRE_FILE)
+def save_json(path, data):
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=2, ensure_ascii=False, default=str)
+
+
+def load_analysis_history():
+    if not ANALYSIS_HISTORY_FILE.exists():
+        return []
+    data = load_json(ANALYSIS_HISTORY_FILE)
+    return data if isinstance(data, list) else []
+
+
+def update_analysis_status(
+    status,
+    run_id=None,
+    current_step=None,
+    step_number=0,
+    total_steps=8,
+    dataset_name=None,
+    message=None,
+    started_at=None,
+    completed_at=None,
+    duration_seconds=None,
+):
+    save_json(
+        ANALYSIS_STATUS_FILE,
+        {
+            "run_id": run_id,
+            "status": status,
+            "current_step": current_step,
+            "step_number": step_number,
+            "total_steps": total_steps,
+            "dataset_name": dataset_name,
+            "message": message,
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "duration_seconds": duration_seconds,
+            "updated_at": pd.Timestamp.now().isoformat(),
+        },
+    )
+
+
+def record_completed_analysis(
+    dataset_name,
+    started_at=None,
+    completed_at=None,
+    duration_seconds=None,
+):
+    history = load_analysis_history()
+    output_evidence = load_json(EVIDENCE_FILE)
+    output_schema = load_json(SCHEMA_FILE)
+    output_alerts = load_json(ALERT_FILE)
+
+    events = 0
+    for key in ["total_records", "records_analyzed", "record_count", "records"]:
+        value = output_evidence.get(key)
+        if value is not None:
+            try:
+                events = int(float(value))
+                break
+            except Exception:
+                pass
+
+    if not events:
+        section = output_evidence.get("dataset", {})
+        if isinstance(section, dict):
+            try:
+                events = int(float(section.get("records", 0)))
+            except Exception:
+                pass
+
+    behavioural = output_evidence.get("behavioural_indicators", [])
+    if isinstance(behavioural, dict):
+        behavioural = list(behavioural.values())
+    findings_count = len(behavioural) if isinstance(behavioural, list) else 0
+
+    alert_list = output_alerts.get("alerts", [])
+    alerts_count = len(alert_list) if isinstance(alert_list, list) else 0
+
+    history.append(
+        {
+            "analysis_number": len(history) + 1,
+            "timestamp": completed_at or pd.Timestamp.now().isoformat(),
+            "started_at": started_at,
+            "completed_at": completed_at or pd.Timestamp.now().isoformat(),
+            "duration_seconds": duration_seconds,
+            "analysis_type": "structured_security_telemetry",
+            "dataset_name": dataset_name or "Unknown dataset",
+            "events": events,
+            "findings": findings_count,
+            "alerts": alerts_count,
+            "mode": output_evidence.get("dataset_mode", "UNKNOWN"),
+            "dataset_type": output_schema.get("dataset_type", "unknown"),
+        }
+    )
+
+    save_json(ANALYSIS_HISTORY_FILE, history)
+
+
+def bootstrap_analysis_history():
+    """
+    Register the current analysis once if the history file does not yet exist.
+    This makes analyses completed before the history feature visible.
+    """
+    if ANALYSIS_HISTORY_FILE.exists():
+        return
+
+    if not (
+        EVIDENCE_FILE.exists()
+        or ALERT_FILE.exists()
+        or SCHEMA_FILE.exists()
+    ):
+        return
+
+    current_dataset = get_latest_dataset()
+    current_dataset_name = (
+        current_dataset.name
+        if current_dataset
+        else "Existing analysis"
+    )
+
+    record_completed_analysis(current_dataset_name)
 
 
 # ============================================================
-# DATASET
+# DATASET DISCOVERY
 # ============================================================
 
 def get_latest_dataset():
@@ -226,6 +351,295 @@ def get_latest_dataset():
     return files[0]
 
 
+# Register an existing completed analysis the first time the
+# upgraded dashboard is opened.
+bootstrap_analysis_history()
+
+
+# ============================================================
+# CLEAR PREVIOUS ANALYSIS
+# ============================================================
+
+def clear_previous_analysis():
+
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    for folder in [RAW_DIR, PROCESSED_DIR]:
+
+        for csv_file in folder.glob("*.csv"):
+            try:
+                csv_file.unlink()
+            except Exception:
+                pass
+
+    generated_files = [
+        EVIDENCE_FILE,
+        SCHEMA_FILE,
+        ALERT_FILE,
+        REPORT_FILE,
+        MITRE_CANDIDATES_FILE,
+        MITRE_FILE,
+        DOCUMENT_ANALYSIS_FILE,
+    ]
+
+    for file_path in generated_files:
+
+        try:
+            if file_path.exists():
+                file_path.unlink()
+        except Exception:
+            pass
+
+    for uploaded in UPLOAD_DIR.iterdir():
+        try:
+            if uploaded.is_file():
+                uploaded.unlink()
+        except Exception:
+            pass
+
+
+def format_timestamp(value):
+    if not value:
+        return "Not available"
+
+    try:
+        timestamp = pd.to_datetime(value)
+        return timestamp.strftime("%d %b %Y, %H:%M:%S")
+    except Exception:
+        return str(value)
+
+
+def format_duration(seconds):
+    if seconds is None:
+        return "Not available"
+
+    try:
+        seconds = float(seconds)
+    except (TypeError, ValueError):
+        return "Not available"
+
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+
+    minutes, remaining_seconds = divmod(int(round(seconds)), 60)
+
+    if minutes < 60:
+        return f"{minutes}m {remaining_seconds}s"
+
+    hours, remaining_minutes = divmod(minutes, 60)
+    return f"{hours}h {remaining_minutes}m {remaining_seconds}s"
+
+
+# ============================================================
+# RUN PIPELINE
+# ============================================================
+
+def run_analysis_pipeline(
+    progress_container=None,
+    status_container=None,
+    dataset_name=None,
+):
+
+    pipeline = [
+        ("Data Cleaning", "data_cleaner.py"),
+        ("Data Validation", "data_validation.py"),
+        ("Schema Discovery", "schema_discovery.py"),
+        ("Security Analysis", "security_analysis.py"),
+        ("MITRE Retrieval", "mitre_mapping.py"),
+        ("MITRE Evidence Validation", "mitre_evaluator.py"),
+        ("AI Security Report", "security_report.py"),
+        ("Risk & Alert Engine", "risk_alert_engine.py"),
+    ]
+
+    logs = []
+    total_steps = len(pipeline)
+    run_id = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
+    started_timestamp = pd.Timestamp.now()
+    started_at = started_timestamp.isoformat()
+
+    progress_container = progress_container or st.empty()
+    status_container = status_container or st.empty()
+
+    progress = progress_container.progress(
+        0,
+        text="Starting security analysis..."
+    )
+
+    update_analysis_status(
+        "RUNNING",
+        run_id,
+        "Starting analysis",
+        0,
+        total_steps,
+        dataset_name,
+        "Initialising security analysis pipeline.",
+        started_at=started_at,
+    )
+
+    try:
+        for index, (step_name, script_name) in enumerate(pipeline, start=1):
+
+            script_path = BASE_DIR / script_name
+
+            if not script_path.exists():
+                raise FileNotFoundError(
+                    f"Required pipeline script not found: {script_name}"
+                )
+
+            status_container.info(
+                f"Analysis in progress — {step_name} ({index}/{total_steps})"
+            )
+
+            progress.progress(
+                (index - 1) / total_steps,
+                text=f"{step_name}..."
+            )
+
+            update_analysis_status(
+                "RUNNING",
+                run_id,
+                step_name,
+                index,
+                total_steps,
+                dataset_name,
+                f"Running {step_name}.",
+                started_at=started_at,
+            )
+
+            try:
+                result = subprocess.run(
+                    [sys.executable, str(script_path)],
+                    cwd=str(BASE_DIR),
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=1800,
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(
+                    f"{step_name} timed out after 30 minutes."
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    f"{step_name} failed to start: {exc}"
+                )
+
+            stdout = result.stdout.strip()
+            stderr = result.stderr.strip()
+
+            logs.append(
+                {
+                    "step": step_name,
+                    "script": script_name,
+                    "return_code": result.returncode,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                }
+            )
+
+            if result.returncode != 0:
+                error_text = stderr or stdout
+                raise RuntimeError(
+                    f"{step_name} failed.\n\n{error_text[-5000:]}"
+                )
+
+            progress.progress(
+                index / total_steps,
+                text=f"{step_name} complete"
+            )
+
+            update_analysis_status(
+                "RUNNING",
+                run_id,
+                step_name,
+                index,
+                total_steps,
+                dataset_name,
+                f"{step_name} completed successfully.",
+                started_at=started_at,
+            )
+
+        completed_timestamp = pd.Timestamp.now()
+        completed_at = completed_timestamp.isoformat()
+        duration_seconds = round(
+            (completed_timestamp - started_timestamp).total_seconds(),
+            2
+        )
+
+        record_completed_analysis(
+            dataset_name,
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_seconds=duration_seconds,
+        )
+
+        update_analysis_status(
+            "COMPLETED",
+            run_id,
+            "Analysis Complete",
+            total_steps,
+            total_steps,
+            dataset_name,
+            "Security analysis pipeline completed successfully.",
+            started_at=started_at,
+            completed_at=completed_at,
+            duration_seconds=duration_seconds,
+        )
+
+        progress.progress(
+            1.0,
+            text=f"Security analysis complete — {format_duration(duration_seconds)}"
+        )
+
+        status_container.success(
+            f"Security analysis pipeline completed successfully "
+            f"in {format_duration(duration_seconds)}."
+        )
+
+        return logs
+
+    except Exception as exc:
+
+        failed_timestamp = pd.Timestamp.now()
+        failed_at = failed_timestamp.isoformat()
+        duration_seconds = round(
+            (failed_timestamp - started_timestamp).total_seconds(),
+            2
+        )
+
+        update_analysis_status(
+            "FAILED",
+            run_id,
+            "Pipeline Error",
+            0,
+            total_steps,
+            dataset_name,
+            str(exc),
+            started_at=started_at,
+            completed_at=failed_at,
+            duration_seconds=duration_seconds,
+        )
+
+        status_container.error(
+            f"Security analysis failed after "
+            f"{format_duration(duration_seconds)}: {exc}"
+        )
+
+        raise
+
+
+# ============================================================
+# LOAD CURRENT ANALYSIS
+# ============================================================
+
+evidence = load_json(EVIDENCE_FILE)
+schema = load_json(SCHEMA_FILE)
+alerts_data = load_json(ALERT_FILE)
+mitre_data = load_json(MITRE_FILE)
+
 dataset = get_latest_dataset()
 
 dataset_name = (
@@ -234,11 +648,13 @@ dataset_name = (
     else "No processed dataset"
 )
 
-
 dataset_type = schema.get(
     "dataset_type",
     "unknown"
 )
+
+if DOCUMENT_ANALYSIS_FILE.exists() and not dataset:
+    dataset_type = "document/image"
 
 dataset_mode = evidence.get(
     "dataset_mode",
@@ -287,9 +703,7 @@ def get_total_events():
         if value is not None:
 
             try:
-                return int(
-                    float(value)
-                )
+                return int(float(value))
             except Exception:
                 pass
 
@@ -329,30 +743,17 @@ def get_findings():
         []
     )
 
-    if isinstance(
-        data,
-        dict
-    ):
+    if isinstance(data, dict):
+        data = list(data.values())
 
-        data = list(
-            data.values()
-        )
-
-    if not isinstance(
-        data,
-        list
-    ):
-
+    if not isinstance(data, list):
         return []
 
     results = []
 
     for item in data:
 
-        if not isinstance(
-            item,
-            dict
-        ):
+        if not isinstance(item, dict):
             continue
 
         finding = item.get(
@@ -360,14 +761,8 @@ def get_findings():
             item
         )
 
-        if isinstance(
-            finding,
-            dict
-        ):
-
-            results.append(
-                finding
-            )
+        if isinstance(finding, dict):
+            results.append(finding)
 
     return results
 
@@ -379,9 +774,7 @@ findings = get_findings()
 # FINDING NAME
 # ============================================================
 
-def get_finding_name(
-    finding
-):
+def get_finding_name(finding):
 
     return finding.get(
         "label",
@@ -403,11 +796,7 @@ def get_alerts():
         []
     )
 
-    if isinstance(
-        data,
-        list
-    ):
-
+    if isinstance(data, list):
         return data
 
     return []
@@ -437,9 +826,7 @@ for alert in alerts:
 
     if severity in severity_counts:
 
-        severity_counts[
-            severity
-        ] += 1
+        severity_counts[severity] += 1
 
 
 active_alerts = sum(
@@ -457,15 +844,9 @@ active_alerts = sum(
 # MITRE EXTRACTION
 # ============================================================
 
-def extract_mitre(
-    obj,
-    results
-):
+def extract_mitre(obj, results):
 
-    if isinstance(
-        obj,
-        dict
-    ):
+    if isinstance(obj, dict):
 
         if (
             "technique_id" in obj
@@ -516,19 +897,15 @@ def extract_mitre(
             ).upper()
 
             if "NOT_SUPPORTED" in status:
-
                 status = "NOT_SUPPORTED"
 
             elif "POSSIBLE" in status:
-
                 status = "POSSIBLE"
 
             elif "SUPPORTED" in status:
-
                 status = "SUPPORTED"
 
             else:
-
                 status = "UNKNOWN"
 
             results.append(
@@ -547,10 +924,7 @@ def extract_mitre(
                 results
             )
 
-    elif isinstance(
-        obj,
-        list
-    ):
+    elif isinstance(obj, list):
 
         for item in obj:
 
@@ -582,9 +956,7 @@ for item in mitre_assessments:
         item["status"]
     )
 
-    unique_mitre[
-        key
-    ] = item
+    unique_mitre[key] = item
 
 
 mitre_assessments = list(
@@ -595,22 +967,19 @@ mitre_assessments = list(
 mitre_supported = sum(
     1
     for item in mitre_assessments
-    if item["status"]
-    == "SUPPORTED"
+    if item["status"] == "SUPPORTED"
 )
 
 mitre_possible = sum(
     1
     for item in mitre_assessments
-    if item["status"]
-    == "POSSIBLE"
+    if item["status"] == "POSSIBLE"
 )
 
 mitre_not_supported = sum(
     1
     for item in mitre_assessments
-    if item["status"]
-    == "NOT_SUPPORTED"
+    if item["status"] == "NOT_SUPPORTED"
 )
 
 
@@ -620,10 +989,7 @@ mitre_not_supported = sum(
 
 candidate_groups = 0
 
-if isinstance(
-    mitre_data,
-    dict
-):
+if isinstance(mitre_data, dict):
 
     candidate_groups = mitre_data.get(
         "candidate_groups",
@@ -641,10 +1007,21 @@ if isinstance(
                         "classification",
                         ""
                     )
-                ).lower()
-                == "attack"
+                ).lower() == "attack"
             ]
         )
+
+
+
+# ============================================================
+# ACTIVE FILTERED DATA
+# ============================================================
+
+filtered_findings, filtered_alerts, filtered_mitre = (
+    findings,
+    alerts,
+    mitre_assessments,
+)
 
 
 # ============================================================
@@ -657,52 +1034,32 @@ def get_port_data():
 
     def walk(obj):
 
-        if isinstance(
-            obj,
-            dict
-        ):
+        if isinstance(obj, dict):
 
             for key, value in obj.items():
 
-                key_lower = str(
-                    key
-                ).lower()
+                key_lower = str(key).lower()
 
-                if (
-                    "associated_destination_ports"
-                    in key_lower
-                ):
+                if "associated_destination_ports" in key_lower:
 
-                    if isinstance(
-                        value,
-                        dict
-                    ):
+                    if isinstance(value, dict):
 
                         for port, count in value.items():
 
                             try:
 
-                                counter[
-                                    str(port)
-                                ] += int(
-                                    float(
-                                        count
-                                    )
+                                counter[str(port)] += int(
+                                    float(count)
                                 )
 
                             except Exception:
-
                                 pass
 
                 walk(value)
 
-        elif isinstance(
-            obj,
-            list
-        ):
+        elif isinstance(obj, list):
 
             for item in obj:
-
                 walk(item)
 
     walk(evidence)
@@ -718,23 +1075,17 @@ def get_timeline():
 
     rows = []
 
-    for finding in findings:
+    for finding in filtered_findings:
 
         temporal = finding.get(
             "temporal_evidence",
             {}
         )
 
-        if not isinstance(
-            temporal,
-            dict
-        ):
-
+        if not isinstance(temporal, dict):
             continue
 
-        name = get_finding_name(
-            finding
-        )
+        name = get_finding_name(finding)
 
         earliest = temporal.get(
             "earliest_timestamp"
@@ -763,16 +1114,11 @@ def get_timeline():
             )
 
     if not rows:
-
         return pd.DataFrame()
 
-    df = pd.DataFrame(
-        rows
-    )
+    df = pd.DataFrame(rows)
 
-    df[
-        "Timestamp"
-    ] = pd.to_datetime(
+    df["Timestamp"] = pd.to_datetime(
         df["Timestamp"],
         errors="coerce"
     )
@@ -783,13 +1129,342 @@ def get_timeline():
 
 
 # ============================================================
+# GLOBAL FILTERS
+# ============================================================
+
+def get_filter_options():
+    severities = sorted({
+        str(a.get("severity", "Informational"))
+        for a in alerts
+        if isinstance(a, dict)
+    })
+
+    statuses = sorted({
+        str(a.get("status", "Unknown"))
+        for a in alerts
+        if isinstance(a, dict)
+    })
+
+    findings_names = sorted({
+        str(a.get("finding", "Unknown"))
+        for a in alerts
+        if isinstance(a, dict)
+    } | {
+        str(get_finding_name(f))
+        for f in findings
+        if isinstance(f, dict)
+    })
+
+    mitre_techniques = sorted({
+        f"{m.get('technique_id', '')} — {m.get('technique_name', '')}"
+        for m in mitre_assessments
+        if isinstance(m, dict)
+    })
+
+    return severities, statuses, findings_names, mitre_techniques
+
+
+def apply_global_filters(
+    selected_severities,
+    selected_statuses,
+    selected_findings,
+    selected_mitre,
+    search_text,
+):
+    filtered_alerts = []
+
+    for alert in alerts:
+        if not isinstance(alert, dict):
+            continue
+
+        if selected_severities and alert.get("severity") not in selected_severities:
+            continue
+
+        if selected_statuses and alert.get("status") not in selected_statuses:
+            continue
+
+        finding_name = str(alert.get("finding", "Unknown"))
+
+        if selected_findings and finding_name not in selected_findings:
+            continue
+
+        if search_text:
+            haystack = json.dumps(alert, ensure_ascii=False).lower()
+            if search_text.lower() not in haystack:
+                continue
+
+        if selected_mitre:
+            related = [
+                m for m in mitre_assessments
+                if str(m.get("finding", "")).strip().lower()
+                == finding_name.strip().lower()
+                and f"{m.get('technique_id', '')} — {m.get('technique_name', '')}"
+                in selected_mitre
+            ]
+            if not related:
+                continue
+
+        filtered_alerts.append(alert)
+
+    filtered_finding_names = {
+        str(a.get("finding", "Unknown"))
+        for a in filtered_alerts
+    }
+
+    if not any([
+        selected_severities,
+        selected_statuses,
+        selected_findings,
+        selected_mitre,
+        search_text,
+    ]):
+        filtered_findings = findings
+    else:
+        filtered_findings = [
+            f for f in findings
+            if str(get_finding_name(f)) in filtered_finding_names
+        ]
+
+    if selected_mitre:
+        filtered_mitre = [
+            m for m in mitre_assessments
+            if f"{m.get('technique_id', '')} — {m.get('technique_name', '')}"
+            in selected_mitre
+        ]
+    elif filtered_finding_names:
+        filtered_mitre = [
+            m for m in mitre_assessments
+            if str(m.get("finding", "")).strip().lower()
+            in {x.strip().lower() for x in filtered_finding_names}
+        ]
+    else:
+        filtered_mitre = mitre_assessments
+
+    return filtered_findings, filtered_alerts, filtered_mitre
+
+
+def render_filters():
+    """Render sidebar filters. Search is rendered in the main header."""
+    st.markdown("### Filters")
+
+    severities, statuses, finding_names, mitre_names = get_filter_options()
+
+    selected_severities = st.multiselect(
+        "Severity",
+        severities,
+        key="filter_severity",
+    )
+
+    selected_statuses = st.multiselect(
+        "Status",
+        statuses,
+        key="filter_status",
+    )
+
+    selected_findings = st.multiselect(
+        "Finding",
+        finding_names,
+        key="filter_finding",
+    )
+
+    selected_mitre = st.multiselect(
+        "MITRE Technique",
+        mitre_names,
+        key="filter_mitre",
+    )
+
+    st.caption("Filters apply automatically.")
+
+    return (
+        selected_severities,
+        selected_statuses,
+        selected_findings,
+        selected_mitre,
+    )
+
+
+def render_report_exports(
+    filtered_findings,
+    filtered_alerts,
+    filtered_mitre,
+    document_result=None,
+):
+    st.markdown("### Export Report")
+
+    package = build_filtered_package(
+        dataset_name=dataset_name,
+        dataset_type=dataset_type,
+        dataset_mode=dataset_mode,
+        total_events=total_events,
+        findings=filtered_findings,
+        alerts=filtered_alerts,
+        mitre_assessments=filtered_mitre,
+        document_result=document_result,
+    )
+
+    formats = [
+        ("PDF", "report.pdf", "application/pdf"),
+        ("DOCX", "report.docx",
+         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        ("XLSX", "report.xlsx",
+         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        ("CSV", "report.csv", "text/csv"),
+        ("JSON", "report.json", "application/json"),
+        ("TXT", "report.txt", "text/plain"),
+        ("Markdown", "report.md", "text/markdown"),
+    ]
+
+    columns = st.columns(4)
+
+    for index, (format_name, filename, mime) in enumerate(formats):
+        exporter = EXPORTERS.get(format_name)
+
+        if exporter is None:
+            continue
+
+        with columns[index % 4]:
+            try:
+                content = exporter(package)
+                st.download_button(
+                    f"Export {format_name}",
+                    data=content,
+                    file_name=filename,
+                    mime=mime,
+                    use_container_width=True,
+                    key=f"export_{format_name}",
+                )
+            except Exception as exc:
+                st.error(f"{format_name} export failed: {exc}")
+
+
+def render_page_export(
+    page_name,
+    page_findings,
+    page_alerts,
+    page_mitre,
+    document_result=None,
+):
+    with st.expander(f"Export {page_name} Report", expanded=False):
+        st.caption(
+            "Exports include the current page data and active filters."
+        )
+        render_report_exports(
+            page_findings,
+            page_alerts,
+            page_mitre,
+            document_result=document_result,
+        )
+
+
+def render_document_result(result):
+    st.subheader("AI Security Analysis")
+
+    if not result:
+        st.info("No document analysis available.")
+        return
+
+    summary = result.get("executive_summary")
+    if summary:
+        st.markdown("#### Executive Summary")
+        st.write(summary)
+
+    assessment = result.get("document_type_assessment")
+    if assessment:
+        st.markdown("#### Material Assessment")
+        st.write(assessment)
+
+    findings_result = result.get("findings", [])
+
+    if findings_result:
+        st.markdown("#### Findings")
+
+        for finding in findings_result:
+            if not isinstance(finding, dict):
+                continue
+
+            name = finding.get("finding", "Unknown")
+            severity = finding.get("severity", "Unknown")
+            confidence = finding.get("confidence", "Unknown")
+
+            with st.expander(
+                f"{name} • {severity} • {confidence}"
+            ):
+                for section, title in [
+                    ("observed_evidence", "Observed Evidence"),
+                    ("inference", "Inference"),
+                    ("evidence_gaps", "Evidence Gaps"),
+                    ("investigation_steps", "Investigation Steps"),
+                    ("defensive_actions", "Defensive Actions"),
+                ]:
+                    values = finding.get(section, [])
+                    if values:
+                        st.markdown(f"##### {title}")
+                        for value in values:
+                            st.write(f"• {value}")
+
+                candidates = finding.get("mitre_candidates", [])
+                if candidates:
+                    st.markdown("##### MITRE ATT&CK")
+                    rows = []
+                    for candidate in candidates:
+                        if isinstance(candidate, dict):
+                            rows.append({
+                                "Technique": candidate.get("technique_id", ""),
+                                "Name": candidate.get("technique_name", ""),
+                                "Assessment": candidate.get("assessment", ""),
+                                "Reason": candidate.get("reason", ""),
+                            })
+                    if rows:
+                        st.dataframe(
+                            pd.DataFrame(rows),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+
+    overall = result.get("overall_risk", {})
+    if isinstance(overall, dict):
+        st.markdown("#### Overall Risk")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("Risk", overall.get("level", "Unknown"))
+        with c2:
+            st.metric("Confidence", overall.get("confidence", "Low"))
+        if overall.get("reason"):
+            st.write(overall["reason"])
+
+    capabilities = result.get("telemetry_capabilities", {})
+    if capabilities:
+        st.markdown("#### Telemetry Capabilities")
+        rows = [
+            {
+                "Capability": str(k).replace("_", " ").title(),
+                "Available": "Yes" if bool(v) else "No",
+            }
+            for k, v in capabilities.items()
+        ]
+        st.dataframe(
+            pd.DataFrame(rows),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
+# ============================================================
+# LIVE ANALYSIS STATUS
+# ============================================================
+
+live_progress_container = st.empty()
+live_status_container = st.empty()
+
+
+# ============================================================
 # SIDEBAR
 # ============================================================
 
 with st.sidebar:
 
     st.markdown(
-        "## 🛡️ AI Security Copilot"
+        "## AI Security Copilot"
     )
 
     st.caption(
@@ -811,7 +1486,9 @@ with st.sidebar:
             "Timeline",
             "MITRE ATT&CK",
             "AI Analyst",
-            "Evidence"
+            "Evidence",
+            "Reports",
+            "Settings"
         ],
         label_visibility="collapsed"
     )
@@ -836,70 +1513,176 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown(
-        "### Upload New Dataset"
-    )
+    # ========================================================
+    # UPLOAD
+    # ========================================================
+
+    st.markdown("### Upload Security Material")
 
     uploaded_file = st.file_uploader(
-        "CSV dataset",
-        type=["csv"]
+        "Security material",
+        type=[ext.lstrip(".") for ext in SUPPORTED_EXTENSIONS],
+        help=(
+            "Upload CSV, Excel, JSON, Parquet, TXT, LOG, RTF, PDF, "
+            "DOCX or PNG/JPG/JPEG security material."
+        ),
     )
 
     if uploaded_file:
 
+        file_size_mb = uploaded_file.size / (1024 * 1024)
+        upload_type = classify_file(uploaded_file.name)
+
+        st.caption(
+            f"Selected: {uploaded_file.name} ({file_size_mb:.1f} MB)"
+        )
+        st.caption(f"Detected type: {upload_type.title()}")
+
         if st.button(
-            "Upload / Save Dataset",
-            use_container_width=True
+            "Upload & Analyse",
+            use_container_width=True,
+            type="primary",
         ):
 
-            RAW_DIR.mkdir(
-                parents=True,
-                exist_ok=True
-            )
+            try:
+                clear_previous_analysis()
 
-            save_path = (
-                RAW_DIR /
-                uploaded_file.name
-            )
+                UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+                safe_name = safe_filename(uploaded_file.name)
+                upload_path = UPLOAD_DIR / safe_name
 
-            with open(
-                save_path,
-                "wb"
-            ) as file:
+                with open(upload_path, "wb") as file:
+                    file.write(uploaded_file.getbuffer())
 
-                file.write(
-                    uploaded_file.getbuffer()
-                )
+                if upload_type == "structured":
 
-            st.success(
-                "Dataset saved."
-            )
+                    RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-            st.info(
-                "Run the analysis pipeline "
-                "from the terminal."
-            )
+                    # Convert Excel/JSON/Parquet to CSV so the existing
+                    # security telemetry pipeline can process it.
+                    destination = RAW_DIR / f"{Path(safe_name).stem}.csv"
+
+                    convert_structured_to_csv(
+                        upload_path,
+                        destination,
+                    )
+
+                    st.success(
+                        "Structured security data uploaded. "
+                        "Starting the telemetry pipeline..."
+                    )
+
+                    run_analysis_pipeline(
+                        progress_container=live_progress_container,
+                        status_container=live_status_container,
+                        dataset_name=safe_name,
+                    )
+
+                elif upload_type in {"document", "image"}:
+
+                    with st.spinner(
+                        "Extracting and analysing security material..."
+                    ):
+                        result = analyse_uploaded_file(
+                            upload_path,
+                            safe_name,
+                        )
+
+                    DOCUMENT_ANALYSIS_FILE.write_text(
+                        json.dumps(
+                            result,
+                            indent=2,
+                            ensure_ascii=False,
+                        ),
+                        encoding="utf-8",
+                    )
+
+                    st.success(
+                        "Security material analysed successfully."
+                    )
+
+                    document_findings = result.get("findings", [])
+                    if not isinstance(document_findings, list):
+                        document_findings = []
+
+                    history = load_analysis_history()
+                    history.append(
+                        {
+                            "analysis_number": len(history) + 1,
+                            "timestamp": pd.Timestamp.now().isoformat(),
+                            "analysis_type": upload_type,
+                            "dataset_name": safe_name,
+                            "events": 0,
+                            "findings": len(document_findings),
+                            "alerts": 0,
+                            "mode": "DOCUMENT_ANALYSIS",
+                            "dataset_type": upload_type,
+                        }
+                    )
+                    save_json(ANALYSIS_HISTORY_FILE, history)
+
+                else:
+                    raise ValueError(
+                        f"Unsupported file type: {Path(safe_name).suffix}"
+                    )
+
+                st.rerun()
+
+            except Exception as exc:
+
+                st.error("The uploaded material could not be analysed.")
+                st.exception(exc)
+                st.stop()
 
     st.divider()
 
-    st.markdown(
-        "### Pipeline"
+    (
+        selected_severities,
+        selected_statuses,
+        selected_findings,
+        selected_mitre,
+    ) = render_filters()
+
+    st.divider()
+
+
+
+# ============================================================
+# GLOBAL HEADER + SEARCH
+# ============================================================
+
+header_left, header_right = st.columns([7, 1.5])
+
+with header_left:
+    st.title("AI Security Copilot")
+    st.caption(
+        "See the signal. Catch the threat. "
+        "AI-powered security intelligence."
     )
 
-    for step in [
-        "✓ Data Cleaning",
-        "✓ Data Validation",
-        "✓ Schema Discovery",
-        "✓ Behaviour Analysis",
-        "✓ MITRE Retrieval",
-        "✓ Evidence Validation",
-        "✓ AI Report",
-        "✓ Risk & Alert Engine"
-    ]:
+    search_text = st.text_input(
+        "Global search",
+        placeholder="Search alerts, findings or evidence",
+        key="global_search",
+        label_visibility="collapsed",
+    )
 
-        st.caption(
-            step
-        )
+with header_right:
+    st.metric("Active Alerts", active_alerts)
+
+(
+    filtered_findings,
+    filtered_alerts,
+    filtered_mitre,
+) = apply_global_filters(
+    selected_severities,
+    selected_statuses,
+    selected_findings,
+    selected_mitre,
+    search_text,
+)
+
+st.divider()
 
 
 # ============================================================
@@ -908,66 +1691,138 @@ with st.sidebar:
 
 if page == "Overview":
 
-    left, right = st.columns(
-        [7, 1.5]
+    render_page_export(
+        "Overview",
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
     )
 
-    with left:
+    # ========================================================
+    # ANALYSIS STATUS & HISTORY
+    # ========================================================
 
-        st.title(
-            "🛡️ AI Security Copilot"
+    current_status = load_json(ANALYSIS_STATUS_FILE)
+    history = load_analysis_history()
+
+    status_value = current_status.get("status", "IDLE")
+
+    if status_value == "RUNNING":
+        st.info(
+            f"Analysis in progress — "
+            f"{current_status.get('current_step', 'Starting')} "
+            f"({current_status.get('step_number', 0)}/"
+            f"{current_status.get('total_steps', 8)})"
+        )
+    elif status_value == "FAILED":
+        st.error(
+            f"Last analysis failed: "
+            f"{current_status.get('message', 'Unknown error.')}"
+        )
+    elif status_value == "COMPLETED":
+        st.success(
+            f"Last analysis completed — "
+            f"{current_status.get('dataset_name', dataset_name)}"
         )
 
-        st.caption(
-            "See the signal. Catch the threat. "
-            "AI-powered security intelligence."
-        )
+        completed_at = current_status.get("completed_at")
+        duration_seconds = current_status.get("duration_seconds")
 
-    with right:
+        if completed_at or duration_seconds is not None:
+            st.caption(
+                f"Completed: {format_timestamp(completed_at)}  •  "
+                f"Duration: {format_duration(duration_seconds)}"
+            )
 
+    cumulative_events = sum(
+        int(item.get("events", 0)) for item in history
+    )
+    cumulative_findings = sum(
+        int(item.get("findings", 0)) for item in history
+    )
+
+    h1, h2, h3, h4 = st.columns(4)
+
+    with h1:
+        st.metric("Total Analyses", len(history))
+
+    with h2:
         st.metric(
-            "Active Alerts",
-            active_alerts
+            "Datasets Analysed",
+            len({
+                item.get("dataset_name")
+                for item in history
+                if item.get("dataset_name")
+            })
         )
 
-    # --------------------------------------------------------
-    # KPI ROW
-    # --------------------------------------------------------
+    with h3:
+        st.metric(
+            "Cumulative Events",
+            f"{cumulative_events:,}"
+        )
 
-    k1, k2, k3, k4, k5 = st.columns(
-        5
-    )
+    with h4:
+        st.metric(
+            "Cumulative Findings",
+            f"{cumulative_findings:,}"
+        )
+
+    with st.expander("Analysis History", expanded=False):
+        if history:
+            rows = []
+            for item in reversed(history):
+                rows.append(
+                    {
+                        "Run": item.get("analysis_number", "-"),
+                        "Dataset": item.get("dataset_name", "-"),
+                        "Started": format_timestamp(item.get("started_at")),
+                        "Completed": format_timestamp(item.get("completed_at")),
+                        "Duration": format_duration(item.get("duration_seconds")),
+                        "Events": int(item.get("events", 0)),
+                        "Findings": int(item.get("findings", 0)),
+                        "Alerts": int(item.get("alerts", 0)),
+                        "Mode": item.get("mode", "-"),
+                    }
+                )
+
+            st.dataframe(
+                pd.DataFrame(rows),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("No completed analyses have been recorded yet.")
+
+    st.divider()
+
+    k1, k2, k3, k4, k5 = st.columns(5)
 
     with k1:
-
         st.metric(
             "Events Analysed",
             f"{total_events:,}"
         )
 
     with k2:
-
         st.metric(
             "Security Findings",
             len(findings)
         )
 
     with k3:
-
         st.metric(
             "Active Alerts",
             active_alerts
         )
 
     with k4:
-
         st.metric(
             "MITRE Possible",
             mitre_possible
         )
 
     with k5:
-
         st.metric(
             "MITRE Supported",
             mitre_supported
@@ -975,66 +1830,7 @@ if page == "Overview":
 
     st.divider()
 
-    # --------------------------------------------------------
-    # PIPELINE
-    # --------------------------------------------------------
-
-    st.subheader(
-        "Analysis Pipeline"
-    )
-
-    p1, p2, p3, p4, p5 = st.columns(
-        5
-    )
-
-    with p1:
-
-        st.info(
-            "📡 **Telemetry**\n\n"
-            "Security data"
-        )
-
-    with p2:
-
-        st.info(
-            "🔬 **Behaviour**\n\n"
-            "Pattern analysis"
-        )
-
-    with p3:
-
-        st.error(
-            "🚨 **Alerts**\n\n"
-            "Risk triage"
-        )
-
-    with p4:
-
-        st.warning(
-            "🎯 **MITRE**\n\n"
-            "Technique assessment"
-        )
-
-    with p5:
-
-        st.success(
-            "🧠 **AI Analyst**\n\n"
-            "Security assessment"
-        )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # FIRST CHART ROW
-    # --------------------------------------------------------
-
-    c1, c2, c3 = st.columns(
-        [1.15, 1.15, 1]
-    )
-
-    # ========================================================
-    # EVENTS ACTIVITY
-    # ========================================================
+    c1, c2, c3 = st.columns([1.15, 1.15, 1])
 
     with c1:
 
@@ -1112,17 +1908,13 @@ if page == "Overview":
                 f"{total_events:,}"
             )
 
-    # ========================================================
-    # RISK SCORE
-    # ========================================================
-
     with c2:
 
         st.subheader(
             "Risk Score by Finding"
         )
 
-        if alerts:
+        if filtered_alerts:
 
             risk_df = pd.DataFrame(
                 [
@@ -1132,7 +1924,6 @@ if page == "Overview":
                                 "finding",
                                 "Unknown"
                             ),
-
                         "Risk Score":
                             int(
                                 alert.get(
@@ -1140,14 +1931,13 @@ if page == "Overview":
                                     0
                                 )
                             ),
-
                         "Severity":
                             alert.get(
                                 "severity",
                                 "Informational"
                             )
                     }
-                    for alert in alerts
+                    for alert in filtered_alerts
                 ]
             )
 
@@ -1155,27 +1945,17 @@ if page == "Overview":
 
             for _, row in risk_df.iterrows():
 
-                severity = row[
-                    "Severity"
-                ]
+                severity = row["Severity"]
 
                 fig.add_trace(
                     go.Bar(
-                        x=[
-                            row["Finding"]
-                        ],
-                        y=[
-                            row["Risk Score"]
-                        ],
-                        marker_color=(
-                            SEVERITY_COLOURS.get(
-                                severity,
-                                GREY
-                            )
+                        x=[row["Finding"]],
+                        y=[row["Risk Score"]],
+                        marker_color=SEVERITY_COLOURS.get(
+                            severity,
+                            GREY
                         ),
-                        text=[
-                            row["Risk Score"]
-                        ],
+                        text=[row["Risk Score"]],
                         textposition="outside",
                         showlegend=False
                     )
@@ -1217,10 +1997,6 @@ if page == "Overview":
                 "No risk scores available."
             )
 
-    # ========================================================
-    # ALERT SEVERITY
-    # ========================================================
-
     with c3:
 
         st.subheader(
@@ -1229,30 +2005,12 @@ if page == "Overview":
 
         severity_df = pd.DataFrame(
             {
-                "Severity": [
-                    "Critical",
-                    "High",
-                    "Medium",
-                    "Low",
-                    "Informational"
-                ],
-                "Count": [
-                    severity_counts[
-                        "Critical"
-                    ],
-                    severity_counts[
-                        "High"
-                    ],
-                    severity_counts[
-                        "Medium"
-                    ],
-                    severity_counts[
-                        "Low"
-                    ],
-                    severity_counts[
-                        "Informational"
-                    ]
-                ]
+                "Severity": list(
+                    severity_counts.keys()
+                ),
+                "Count": list(
+                    severity_counts.values()
+                )
             }
         )
 
@@ -1264,24 +2022,15 @@ if page == "Overview":
 
             fig = go.Figure(
                 go.Pie(
-                    labels=severity_df[
-                        "Severity"
-                    ],
-                    values=severity_df[
-                        "Count"
-                    ],
+                    labels=severity_df["Severity"],
+                    values=severity_df["Count"],
                     hole=0.58,
                     textinfo="label+value",
                     textposition="outside",
                     marker=dict(
                         colors=[
-                            SEVERITY_COLOURS[
-                                value
-                            ]
-                            for value
-                            in severity_df[
-                                "Severity"
-                            ]
+                            SEVERITY_COLOURS[value]
+                            for value in severity_df["Severity"]
                         ],
                         line=dict(
                             color=BG,
@@ -1326,17 +2075,7 @@ if page == "Overview":
 
     st.divider()
 
-    # --------------------------------------------------------
-    # SECOND CHART ROW
-    # --------------------------------------------------------
-
-    c1, c2, c3 = st.columns(
-        [1.15, 1.15, 1]
-    )
-
-    # ========================================================
-    # FINDINGS SHARE
-    # ========================================================
+    c1, c2, c3 = st.columns([1.15, 1.15, 1])
 
     with c1:
 
@@ -1346,15 +2085,12 @@ if page == "Overview":
 
         rows = []
 
-        for finding in findings:
+        for finding in filtered_findings:
 
             rows.append(
                 {
                     "Finding":
-                        get_finding_name(
-                            finding
-                        ),
-
+                        get_finding_name(finding),
                     "Share":
                         float(
                             finding.get(
@@ -1367,9 +2103,7 @@ if page == "Overview":
 
         if rows:
 
-            df = pd.DataFrame(
-                rows
-            )
+            df = pd.DataFrame(rows)
 
             fig = px.bar(
                 df,
@@ -1419,10 +2153,6 @@ if page == "Overview":
                 "No findings available."
             )
 
-    # ========================================================
-    # MITRE ASSESSMENT
-    # ========================================================
-
     with c2:
 
         st.subheader(
@@ -1452,12 +2182,8 @@ if page == "Overview":
 
             fig = go.Figure(
                 go.Pie(
-                    labels=mitre_df[
-                        "Assessment"
-                    ],
-                    values=mitre_df[
-                        "Count"
-                    ],
+                    labels=mitre_df["Assessment"],
+                    values=mitre_df["Count"],
                     hole=0.58,
                     textinfo="label+value"
                 )
@@ -1467,13 +2193,7 @@ if page == "Overview":
                 template="plotly_dark",
                 height=310,
                 paper_bgcolor=PANEL,
-                plot_bgcolor=PANEL,
-                margin=dict(
-                    l=5,
-                    r=5,
-                    t=5,
-                    b=20
-                )
+                plot_bgcolor=PANEL
             )
 
             st.plotly_chart(
@@ -1489,10 +2209,6 @@ if page == "Overview":
             st.info(
                 "No MITRE assessments."
             )
-
-    # ========================================================
-    # TOP PORTS
-    # ========================================================
 
     with c3:
 
@@ -1512,11 +2228,7 @@ if page == "Overview":
                 ]
             )
 
-            df[
-                "Port"
-            ] = df[
-                "Port"
-            ].astype(str)
+            df["Port"] = df["Port"].astype(str)
 
             fig = px.bar(
                 df,
@@ -1568,18 +2280,12 @@ if page == "Overview":
 
     st.divider()
 
-    # --------------------------------------------------------
-    # ANOMALIES / THREAT INDICATORS
-    # --------------------------------------------------------
-
-    c1, c2 = st.columns(
-        [1.15, 1]
-    )
+    c1, c2 = st.columns([1.15, 1])
 
     with c1:
 
         st.subheader(
-            "⚠️ Anomalies"
+            "Anomalies"
         )
 
         st.caption(
@@ -1588,12 +2294,11 @@ if page == "Overview":
 
         suspicious = [
             alert
-            for alert in alerts
+            for alert in filtered_alerts
             if alert.get(
                 "severity",
                 "Informational"
-            )
-            != "Informational"
+            ) != "Informational"
         ]
 
         if suspicious:
@@ -1620,14 +2325,12 @@ if page == "Overview":
                     "Informational"
                 )
 
-                a, b, c = st.columns(
-                    [4, 1, 1]
-                )
+                a, b, c = st.columns([4, 1, 1])
 
                 with a:
 
                     st.write(
-                        f"🚨 **{finding}**"
+                        f"{finding}"
                     )
 
                     st.caption(
@@ -1658,7 +2361,7 @@ if page == "Overview":
     with c2:
 
         st.subheader(
-            "🎯 Threat Indicators"
+            "Threat Indicators"
         )
 
         st.caption(
@@ -1667,9 +2370,8 @@ if page == "Overview":
 
         threat_items = [
             item
-            for item in mitre_assessments
-            if item["status"]
-            in [
+            for item in filtered_mitre
+            if item["status"] in [
                 "POSSIBLE",
                 "SUPPORTED"
             ]
@@ -1692,7 +2394,7 @@ if page == "Overview":
                 seen.add(key)
 
                 st.write(
-                    f"🎯 **{item['technique_id']}**"
+                    f"{item['technique_id']}"
                 )
 
                 st.caption(
@@ -1725,66 +2427,70 @@ if page == "Overview":
 
 elif page == "Alerts":
 
+
+    filtered_severity_counts = {
+        "Critical": 0,
+        "High": 0,
+        "Medium": 0,
+        "Low": 0,
+        "Informational": 0,
+    }
+
+    for alert_item in filtered_alerts:
+        severity_item = alert_item.get("severity", "Informational")
+        if severity_item in filtered_severity_counts:
+            filtered_severity_counts[severity_item] += 1
+
     st.title(
-        "🚨 Risk & Alert Centre"
+        "Risk & Alert Centre"
     )
 
     st.caption(
         "Security alerts, risk prioritisation and analyst triage."
     )
-
-    # --------------------------------------------------------
-    # SEVERITY CARDS
-    # --------------------------------------------------------
-
-    c1, c2, c3, c4, c5 = st.columns(
-        5
+ 
+    render_page_export(
+        "Alerts",
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
     )
 
-    with c1:
+    c1, c2, c3, c4, c5 = st.columns(5)
 
+    with c1:
         st.metric(
             "Critical",
-            severity_counts["Critical"]
+            filtered_severity_counts["Critical"]
         )
 
     with c2:
-
         st.metric(
             "High",
-            severity_counts["High"]
+            filtered_severity_counts["High"]
         )
 
     with c3:
-
         st.metric(
             "Medium",
-            severity_counts["Medium"]
+            filtered_severity_counts["Medium"]
         )
 
     with c4:
-
         st.metric(
             "Low",
-            severity_counts["Low"]
+            filtered_severity_counts["Low"]
         )
 
     with c5:
-
         st.metric(
             "Informational",
-            severity_counts["Informational"]
+            filtered_severity_counts["Informational"]
         )
 
     st.divider()
 
-    # --------------------------------------------------------
-    # CHARTS
-    # --------------------------------------------------------
-
-    chart1, chart2 = st.columns(
-        [1, 1]
-    )
+    chart1, chart2 = st.columns(2)
 
     with chart1:
 
@@ -1794,30 +2500,12 @@ elif page == "Alerts":
 
         severity_df = pd.DataFrame(
             {
-                "Severity": [
-                    "Critical",
-                    "High",
-                    "Medium",
-                    "Low",
-                    "Informational"
-                ],
-                "Count": [
-                    severity_counts[
-                        "Critical"
-                    ],
-                    severity_counts[
-                        "High"
-                    ],
-                    severity_counts[
-                        "Medium"
-                    ],
-                    severity_counts[
-                        "Low"
-                    ],
-                    severity_counts[
-                        "Informational"
-                    ]
-                ]
+                "Severity": list(
+                    severity_counts.keys()
+                ),
+                "Count": list(
+                    severity_counts.values()
+                )
             }
         )
 
@@ -1829,24 +2517,15 @@ elif page == "Alerts":
 
             fig = go.Figure(
                 go.Pie(
-                    labels=severity_df[
-                        "Severity"
-                    ],
-                    values=severity_df[
-                        "Count"
-                    ],
+                    labels=severity_df["Severity"],
+                    values=severity_df["Count"],
                     hole=0.58,
                     textinfo="label+value",
                     textposition="outside",
                     marker=dict(
                         colors=[
-                            SEVERITY_COLOURS[
-                                value
-                            ]
-                            for value
-                            in severity_df[
-                                "Severity"
-                            ]
+                            SEVERITY_COLOURS[value]
+                            for value in severity_df["Severity"]
                         ],
                         line=dict(
                             color=BG,
@@ -1860,19 +2539,7 @@ elif page == "Alerts":
                 template="plotly_dark",
                 height=400,
                 paper_bgcolor=PANEL,
-                plot_bgcolor=PANEL,
-                margin=dict(
-                    l=20,
-                    r=20,
-                    t=20,
-                    b=25
-                ),
-                legend=dict(
-                    orientation="h",
-                    y=-0.08,
-                    x=0.5,
-                    xanchor="center"
-                )
+                plot_bgcolor=PANEL
             )
 
             st.plotly_chart(
@@ -1889,11 +2556,11 @@ elif page == "Alerts":
             "Risk Score by Finding"
         )
 
-        if alerts:
+        if filtered_alerts:
 
             fig = go.Figure()
 
-            for alert in alerts:
+            for alert in filtered_alerts:
 
                 finding = alert.get(
                     "finding",
@@ -1916,11 +2583,9 @@ elif page == "Alerts":
                     go.Bar(
                         x=[finding],
                         y=[score],
-                        marker_color=(
-                            SEVERITY_COLOURS.get(
-                                severity,
-                                GREY
-                            )
+                        marker_color=SEVERITY_COLOURS.get(
+                            severity,
+                            GREY
                         ),
                         text=[score],
                         textposition="outside",
@@ -1933,12 +2598,6 @@ elif page == "Alerts":
                 height=400,
                 paper_bgcolor=PANEL,
                 plot_bgcolor=PANEL,
-                margin=dict(
-                    l=20,
-                    r=25,
-                    t=20,
-                    b=45
-                ),
                 yaxis=dict(
                     title="Risk Score",
                     range=[0, 100],
@@ -1947,8 +2606,7 @@ elif page == "Alerts":
                 xaxis=dict(
                     title="",
                     showgrid=False
-                ),
-                bargap=0.45
+                )
             )
 
             st.plotly_chart(
@@ -1961,19 +2619,15 @@ elif page == "Alerts":
 
     st.divider()
 
-    # --------------------------------------------------------
-    # ALERT TABLE
-    # --------------------------------------------------------
-
     st.subheader(
         "Security Alerts"
     )
 
-    if alerts:
+    if filtered_alerts:
 
         rows = []
 
-        for alert in alerts:
+        for alert in filtered_alerts:
 
             rows.append(
                 {
@@ -1982,19 +2636,16 @@ elif page == "Alerts":
                             "alert_id",
                             "-"
                         ),
-
                     "Finding":
                         alert.get(
                             "finding",
                             "-"
                         ),
-
                     "Severity":
                         alert.get(
                             "severity",
                             "-"
                         ),
-
                     "Risk Score":
                         int(
                             alert.get(
@@ -2002,13 +2653,11 @@ elif page == "Alerts":
                                 0
                             )
                         ),
-
                     "Confidence":
                         alert.get(
                             "confidence",
                             "-"
                         ),
-
                     "Status":
                         alert.get(
                             "status",
@@ -2017,22 +2666,12 @@ elif page == "Alerts":
                 }
             )
 
-        alert_df = pd.DataFrame(
-            rows
-        )
+        alert_df = pd.DataFrame(rows)
 
         st.dataframe(
             alert_df,
             use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Risk Score":
-                    st.column_config.ProgressColumn(
-                        "Risk Score",
-                        min_value=0,
-                        max_value=100
-                    )
-            }
+            hide_index=True
         )
 
         st.divider()
@@ -2044,7 +2683,7 @@ elif page == "Alerts":
         options = [
             f"{alert.get('alert_id')} — "
             f"{alert.get('finding')}"
-            for alert in alerts
+            for alert in filtered_alerts
         ]
 
         selected = st.selectbox(
@@ -2056,16 +2695,11 @@ elif page == "Alerts":
             selected
         )
 
-        alert = alerts[
-            selected_index
-        ]
+        alert = filtered_alerts[selected_index]
 
-        d1, d2, d3, d4 = st.columns(
-            4
-        )
+        d1, d2, d3, d4 = st.columns(4)
 
         with d1:
-
             st.metric(
                 "Risk Score",
                 alert.get(
@@ -2075,7 +2709,6 @@ elif page == "Alerts":
             )
 
         with d2:
-
             st.metric(
                 "Severity",
                 alert.get(
@@ -2085,7 +2718,6 @@ elif page == "Alerts":
             )
 
         with d3:
-
             st.metric(
                 "Confidence",
                 alert.get(
@@ -2095,7 +2727,6 @@ elif page == "Alerts":
             )
 
         with d4:
-
             st.metric(
                 "Status",
                 alert.get(
@@ -2104,16 +2735,88 @@ elif page == "Alerts":
                 )
             )
 
+        # ====================================================
+        # RISK CALCULATION BREAKDOWN
+        # ====================================================
+
+        risk_calculation = alert.get(
+            "risk_calculation",
+            {}
+        )
+
+        if risk_calculation:
+
+            st.divider()
+            st.subheader("Risk Calculation")
+
+            rc1, rc2 = st.columns([1, 2])
+
+            with rc1:
+                st.metric(
+                    "Calculated Risk Score",
+                    f"{risk_calculation.get('score', alert.get('risk_score', 0))}/"
+                    f"{risk_calculation.get('maximum_possible_score', 100)}"
+                )
+
+                st.caption(
+                    risk_calculation.get(
+                        "interpretation",
+                        "Analytical prioritisation score."
+                    )
+                )
+
+            with rc2:
+
+                components = risk_calculation.get(
+                    "components",
+                    {}
+                )
+
+                rows = []
+
+                for component_name, component_data in components.items():
+
+                    if not isinstance(component_data, dict):
+                        continue
+
+                    rows.append(
+                        {
+                            "Component": component_name.replace(
+                                "_",
+                                " "
+                            ).title(),
+                            "Score": component_data.get("score", 0),
+                            "Maximum": component_data.get("maximum", 0),
+                            "Contribution": (
+                                f"{component_data.get('score', 0)}/"
+                                f"{component_data.get('maximum', 0)}"
+                            ),
+                            "Reason": component_data.get("reason", ""),
+                        }
+                    )
+
+                if rows:
+                    st.dataframe(
+                        pd.DataFrame(rows),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+            baseline = risk_calculation.get("baseline", {})
+
+            if isinstance(baseline, dict):
+                description = baseline.get("description")
+                if description:
+                    st.caption(description)
+
         st.divider()
 
-        e1, e2 = st.columns(
-            2
-        )
+        e1, e2 = st.columns(2)
 
         with e1:
 
             st.subheader(
-                "🔎 Evidence"
+                "Evidence"
             )
 
             items = alert.get(
@@ -2124,7 +2827,6 @@ elif page == "Alerts":
             if items:
 
                 for item in items:
-
                     st.write(
                         f"• {item}"
                     )
@@ -2138,7 +2840,7 @@ elif page == "Alerts":
         with e2:
 
             st.subheader(
-                "⚠️ Evidence Gaps"
+                "Evidence Gaps"
             )
 
             gaps = alert.get(
@@ -2149,7 +2851,6 @@ elif page == "Alerts":
             if gaps:
 
                 for gap in gaps:
-
                     st.write(
                         f"• {gap}"
                     )
@@ -2162,14 +2863,12 @@ elif page == "Alerts":
 
         st.divider()
 
-        i1, i2 = st.columns(
-            2
-        )
+        i1, i2 = st.columns(2)
 
         with i1:
 
             st.subheader(
-                "🔬 Investigation Steps"
+                "Investigation Steps"
             )
 
             steps = alert.get(
@@ -2197,7 +2896,7 @@ elif page == "Alerts":
         with i2:
 
             st.subheader(
-                "🛡️ Defensive Actions"
+                "Defensive Actions"
             )
 
             actions = alert.get(
@@ -2208,7 +2907,6 @@ elif page == "Alerts":
             if actions:
 
                 for action in actions:
-
                     st.write(
                         f"• {action}"
                     )
@@ -2233,18 +2931,23 @@ elif page == "Alerts":
 elif page == "Security Findings":
 
     st.title(
-        "🔎 Security Findings"
+        "Security Findings"
     )
 
     st.caption(
         "Behavioural findings identified from the analysed security telemetry."
     )
+ 
+    render_page_export(
+        "Security Findings",
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
+    )
 
-    if findings:
+    if filtered_findings:
 
-        total_findings = len(
-            findings
-        )
+        total_findings = len(filtered_findings)
 
         attack_findings = sum(
             1
@@ -2254,8 +2957,7 @@ elif page == "Security Findings":
                     "classification",
                     ""
                 )
-            ).lower()
-            == "attack"
+            ).lower() == "attack"
         )
 
         baseline_findings = sum(
@@ -2266,8 +2968,7 @@ elif page == "Security Findings":
                     "classification",
                     ""
                 )
-            ).lower()
-            == "benign"
+            ).lower() == "benign"
         )
 
         classified_records = sum(
@@ -2280,33 +2981,27 @@ elif page == "Security Findings":
             for finding in findings
         )
 
-        c1, c2, c3, c4 = st.columns(
-            4
-        )
+        c1, c2, c3, c4 = st.columns(4)
 
         with c1:
-
             st.metric(
                 "Findings",
                 total_findings
             )
 
         with c2:
-
             st.metric(
                 "Attack Findings",
                 attack_findings
             )
 
         with c3:
-
             st.metric(
                 "Baseline Findings",
                 baseline_findings
             )
 
         with c4:
-
             st.metric(
                 "Records Classified",
                 f"{classified_records:,}"
@@ -2314,25 +3009,16 @@ elif page == "Security Findings":
 
         st.divider()
 
-        # ----------------------------------------------------
-        # FINDING CHARTS
-        # ----------------------------------------------------
-
-        chart1, chart2 = st.columns(
-            [1, 1]
-        )
+        chart1, chart2 = st.columns(2)
 
         finding_rows = []
 
-        for finding in findings:
+        for finding in filtered_findings:
 
             finding_rows.append(
                 {
                     "Finding":
-                        get_finding_name(
-                            finding
-                        ),
-
+                        get_finding_name(finding),
                     "Records":
                         int(
                             finding.get(
@@ -2340,7 +3026,6 @@ elif page == "Security Findings":
                                 0
                             )
                         ),
-
                     "Share":
                         float(
                             finding.get(
@@ -2363,20 +3048,10 @@ elif page == "Security Findings":
 
             fig = go.Figure(
                 go.Pie(
-                    labels=finding_df[
-                        "Finding"
-                    ],
-                    values=finding_df[
-                        "Records"
-                    ],
+                    labels=finding_df["Finding"],
+                    values=finding_df["Records"],
                     hole=0.55,
-                    textinfo="label+percent",
-                    marker=dict(
-                        line=dict(
-                            color=BG,
-                            width=2
-                        )
-                    )
+                    textinfo="label+percent"
                 )
             )
 
@@ -2420,12 +3095,6 @@ elif page == "Security Findings":
                 height=370,
                 paper_bgcolor=PANEL,
                 plot_bgcolor=PANEL,
-                margin=dict(
-                    l=10,
-                    r=50,
-                    t=10,
-                    b=20
-                ),
                 xaxis=dict(
                     title="Records",
                     gridcolor="#29303d"
@@ -2445,17 +3114,13 @@ elif page == "Security Findings":
 
         st.divider()
 
-        # ----------------------------------------------------
-        # OVERVIEW TABLE
-        # ----------------------------------------------------
-
         st.subheader(
             "Finding Overview"
         )
 
         table_rows = []
 
-        for finding in findings:
+        for finding in filtered_findings:
 
             classification = str(
                 finding.get(
@@ -2465,33 +3130,20 @@ elif page == "Security Findings":
             ).lower()
 
             if classification == "benign":
-
-                display_classification = (
-                    "🟢 Baseline"
-                )
+                display_classification = "Baseline"
 
             elif classification == "attack":
-
-                display_classification = (
-                    "🚨 Attack"
-                )
+                display_classification = "Attack"
 
             else:
-
-                display_classification = (
-                    "⚠️ Unknown"
-                )
+                display_classification = "Unknown"
 
             table_rows.append(
                 {
                     "Finding":
-                        get_finding_name(
-                            finding
-                        ),
-
+                        get_finding_name(finding),
                     "Classification":
                         display_classification,
-
                     "Records":
                         int(
                             finding.get(
@@ -2499,7 +3151,6 @@ elif page == "Security Findings":
                                 0
                             )
                         ),
-
                     "Dataset Share":
                         float(
                             finding.get(
@@ -2524,7 +3175,6 @@ elif page == "Security Findings":
                         "Records",
                         format="%d"
                     ),
-
                 "Dataset Share":
                     st.column_config.NumberColumn(
                         "Dataset Share",
@@ -2535,19 +3185,13 @@ elif page == "Security Findings":
 
         st.divider()
 
-        # ----------------------------------------------------
-        # BEHAVIOURAL FINDINGS
-        # ----------------------------------------------------
-
         st.subheader(
             "Behavioural Findings"
         )
 
-        for finding in findings:
+        for finding in filtered_findings:
 
-            label = get_finding_name(
-                finding
-            )
+            label = get_finding_name(finding)
 
             classification = str(
                 finding.get(
@@ -2555,18 +3199,6 @@ elif page == "Security Findings":
                     "unknown"
                 )
             ).lower()
-
-            if classification == "benign":
-
-                icon = "🟢"
-
-            elif classification == "attack":
-
-                icon = "🚨"
-
-            else:
-
-                icon = "⚠️"
 
             records = int(
                 finding.get(
@@ -2583,41 +3215,32 @@ elif page == "Security Findings":
             )
 
             with st.expander(
-                f"{icon} {label}  •  "
-                f"{records:,} records  •  "
+                f"{label} • "
+                f"{records:,} records • "
                 f"{share:.2f}%"
             ):
 
-                a1, a2, a3 = st.columns(
-                    3
-                )
+                a1, a2, a3 = st.columns(3)
 
                 with a1:
-
                     st.metric(
                         "Records",
                         f"{records:,}"
                     )
 
                 with a2:
-
                     st.metric(
                         "Dataset Share",
                         f"{share:.2f}%"
                     )
 
                 with a3:
-
                     st.metric(
                         "Classification",
                         classification.title()
                     )
 
                 st.divider()
-
-                # --------------------------------------------
-                # PORTS
-                # --------------------------------------------
 
                 ports = finding.get(
                     "associated_destination_ports",
@@ -2627,7 +3250,7 @@ elif page == "Security Findings":
                 if ports:
 
                     st.markdown(
-                        "#### 🌐 Destination Ports"
+                        "#### Destination Ports"
                     )
 
                     port_rows = []
@@ -2639,38 +3262,24 @@ elif page == "Security Findings":
                     )[:10]:
 
                         try:
-
-                            count = int(
-                                float(count)
-                            )
-
+                            count = int(float(count))
                         except Exception:
-
                             continue
 
                         port_rows.append(
                             {
-                                "Port":
-                                    str(port),
-
-                                "Records":
-                                    count
+                                "Port": str(port),
+                                "Records": count
                             }
                         )
 
                     if port_rows:
 
                         st.dataframe(
-                            pd.DataFrame(
-                                port_rows
-                            ),
+                            pd.DataFrame(port_rows),
                             use_container_width=True,
                             hide_index=True
                         )
-
-                # --------------------------------------------
-                # PROTOCOLS
-                # --------------------------------------------
 
                 protocols = finding.get(
                     "associated_protocols",
@@ -2680,7 +3289,7 @@ elif page == "Security Findings":
                 if protocols:
 
                     st.markdown(
-                        "#### 📡 Protocols"
+                        "#### Protocols"
                     )
 
                     protocol_rows = []
@@ -2692,38 +3301,24 @@ elif page == "Security Findings":
                     )[:10]:
 
                         try:
-
-                            count = int(
-                                float(count)
-                            )
-
+                            count = int(float(count))
                         except Exception:
-
                             continue
 
                         protocol_rows.append(
                             {
-                                "Protocol":
-                                    str(protocol),
-
-                                "Records":
-                                    count
+                                "Protocol": str(protocol),
+                                "Records": count
                             }
                         )
 
                     if protocol_rows:
 
                         st.dataframe(
-                            pd.DataFrame(
-                                protocol_rows
-                            ),
+                            pd.DataFrame(protocol_rows),
                             use_container_width=True,
                             hide_index=True
                         )
-
-                # --------------------------------------------
-                # STATISTICS
-                # --------------------------------------------
 
                 statistics = finding.get(
                     "behavioural_statistics",
@@ -2733,17 +3328,14 @@ elif page == "Security Findings":
                 if statistics:
 
                     st.markdown(
-                        "#### 📊 Behavioural Statistics"
+                        "#### Behavioural Statistics"
                     )
 
                     statistic_rows = []
 
                     for name, value in statistics.items():
 
-                        if isinstance(
-                            value,
-                            dict
-                        ):
+                        if isinstance(value, dict):
 
                             for sub_name, sub_value in value.items():
 
@@ -2751,11 +3343,8 @@ elif page == "Security Findings":
                                     {
                                         "Metric":
                                             f"{name} • {sub_name}",
-
                                         "Value":
-                                            str(
-                                                sub_value
-                                            )
+                                            str(sub_value)
                                     }
                                 )
 
@@ -2763,27 +3352,18 @@ elif page == "Security Findings":
 
                             statistic_rows.append(
                                 {
-                                    "Metric":
-                                        str(name),
-
-                                    "Value":
-                                        str(value)
+                                    "Metric": str(name),
+                                    "Value": str(value)
                                 }
                             )
 
                     if statistic_rows:
 
                         st.dataframe(
-                            pd.DataFrame(
-                                statistic_rows
-                            ),
+                            pd.DataFrame(statistic_rows),
                             use_container_width=True,
                             hide_index=True
                         )
-
-                # --------------------------------------------
-                # TEMPORAL
-                # --------------------------------------------
 
                 temporal = finding.get(
                     "temporal_evidence",
@@ -2793,17 +3373,15 @@ elif page == "Security Findings":
                 if temporal:
 
                     st.markdown(
-                        "#### 🕒 Temporal Evidence"
+                        "#### Temporal Evidence"
                     )
 
-                    t1, t2, t3 = st.columns(
-                        3
-                    )
+                    t1, t2, t3 = st.columns(3)
 
                     with t1:
 
                         st.write(
-                            "**First observed**"
+                            "First observed"
                         )
 
                         st.caption(
@@ -2818,7 +3396,7 @@ elif page == "Security Findings":
                     with t2:
 
                         st.write(
-                            "**Last observed**"
+                            "Last observed"
                         )
 
                         st.caption(
@@ -2833,7 +3411,7 @@ elif page == "Security Findings":
                     with t3:
 
                         st.write(
-                            "**Peak activity**"
+                            "Peak activity"
                         )
 
                         st.caption(
@@ -2848,10 +3426,6 @@ elif page == "Security Findings":
                             )
                         )
 
-                # --------------------------------------------
-                # COMPARATIVE
-                # --------------------------------------------
-
                 comparative = finding.get(
                     "comparative_behavioural_evidence",
                     {}
@@ -2860,7 +3434,7 @@ elif page == "Security Findings":
                 if comparative:
 
                     st.markdown(
-                        "#### 🔬 Comparative Behaviour"
+                        "#### Comparative Behaviour"
                     )
 
                     if isinstance(
@@ -2870,10 +3444,7 @@ elif page == "Security Findings":
 
                         for key, value in comparative.items():
 
-                            if isinstance(
-                                value,
-                                dict
-                            ):
+                            if isinstance(value, dict):
 
                                 st.write(
                                     f"**{key}**"
@@ -2882,8 +3453,7 @@ elif page == "Security Findings":
                                 for sub_key, sub_value in value.items():
 
                                     st.caption(
-                                        f"{sub_key}: "
-                                        f"{sub_value}"
+                                        f"{sub_key}: {sub_value}"
                                     )
 
                             else:
@@ -2898,7 +3468,6 @@ elif page == "Security Findings":
                     ):
 
                         for item in comparative:
-
                             st.write(
                                 f"• {item}"
                             )
@@ -2909,10 +3478,6 @@ elif page == "Security Findings":
                             str(comparative)
                         )
 
-                # --------------------------------------------
-                # LIMITATIONS
-                # --------------------------------------------
-
                 limitations = finding.get(
                     "evidence_limitations",
                     []
@@ -2921,11 +3486,10 @@ elif page == "Security Findings":
                 if limitations:
 
                     st.markdown(
-                        "#### ⚠️ Evidence Limitations"
+                        "#### Evidence Limitations"
                     )
 
                     for limitation in limitations:
-
                         st.write(
                             f"• {limitation}"
                         )
@@ -2944,11 +3508,18 @@ elif page == "Security Findings":
 elif page == "Timeline":
 
     st.title(
-        "🕒 Security Timeline"
+        "Security Timeline"
     )
 
     st.caption(
         "Temporal view of observed security activity."
+    )
+ 
+    render_page_export(
+        "Timeline",
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
     )
 
     timeline = get_timeline()
@@ -2984,13 +3555,7 @@ elif page == "Timeline":
             template="plotly_dark",
             height=500,
             paper_bgcolor=BG,
-            plot_bgcolor=BG,
-            margin=dict(
-                l=10,
-                r=10,
-                t=20,
-                b=20
-            )
+            plot_bgcolor=BG
         )
 
         st.plotly_chart(
@@ -3027,43 +3592,41 @@ elif page == "Timeline":
 elif page == "MITRE ATT&CK":
 
     st.title(
-        "🎯 MITRE ATT&CK Assessment"
+        "MITRE ATT&CK Assessment"
     )
 
     st.caption(
         "Evidence-based validation of retrieved ATT&CK techniques."
     )
-
-    c1, c2, c3 = st.columns(
-        3
+ 
+    render_page_export(
+        "MITRE ATT&CK",
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
     )
 
-    with c1:
+    c1, c2, c3 = st.columns(3)
 
+    with c1:
         st.metric(
             "Supported",
-            mitre_supported
+            sum(1 for item in filtered_mitre if item["status"] == "SUPPORTED")
         )
 
     with c2:
-
         st.metric(
             "Possible",
-            mitre_possible
+            sum(1 for item in filtered_mitre if item["status"] == "POSSIBLE")
         )
 
     with c3:
-
         st.metric(
             "Not Supported",
-            mitre_not_supported
+            sum(1 for item in filtered_mitre if item["status"] == "NOT_SUPPORTED")
         )
 
     st.divider()
-
-    # --------------------------------------------------------
-    # MITRE VISUAL
-    # --------------------------------------------------------
 
     mitre_df = pd.DataFrame(
         {
@@ -3073,9 +3636,9 @@ elif page == "MITRE ATT&CK":
                 "Not Supported"
             ],
             "Count": [
-                mitre_supported,
-                mitre_possible,
-                mitre_not_supported
+                sum(1 for item in filtered_mitre if item["status"] == "SUPPORTED"),
+                sum(1 for item in filtered_mitre if item["status"] == "POSSIBLE"),
+                sum(1 for item in filtered_mitre if item["status"] == "NOT_SUPPORTED")
             ]
         }
     )
@@ -3088,12 +3651,8 @@ elif page == "MITRE ATT&CK":
 
         fig = go.Figure(
             go.Pie(
-                labels=mitre_df[
-                    "Assessment"
-                ],
-                values=mitre_df[
-                    "Count"
-                ],
+                labels=mitre_df["Assessment"],
+                values=mitre_df["Count"],
                 hole=0.58,
                 textinfo="label+value"
             )
@@ -3116,15 +3675,10 @@ elif page == "MITRE ATT&CK":
 
     st.divider()
 
-    # --------------------------------------------------------
-    # SUPPORTED
-    # --------------------------------------------------------
-
     supported = [
         item
-        for item in mitre_assessments
-        if item["status"]
-        == "SUPPORTED"
+        for item in filtered_mitre
+        if item["status"] == "SUPPORTED"
     ]
 
     if supported:
@@ -3141,15 +3695,10 @@ elif page == "MITRE ATT&CK":
                 f"{item['finding']}"
             )
 
-    # --------------------------------------------------------
-    # POSSIBLE
-    # --------------------------------------------------------
-
     possible = [
         item
-        for item in mitre_assessments
-        if item["status"]
-        == "POSSIBLE"
+        for item in filtered_mitre
+        if item["status"] == "POSSIBLE"
     ]
 
     if possible:
@@ -3180,7 +3729,7 @@ elif page == "MITRE ATT&CK":
 elif page == "AI Analyst":
 
     st.title(
-        "🧠 AI Security Analyst"
+        "AI Security Analyst"
     )
 
     st.caption(
@@ -3188,7 +3737,27 @@ elif page == "AI Analyst":
         "the analysed evidence and validated findings."
     )
 
-    if REPORT_FILE.exists():
+    if DOCUMENT_ANALYSIS_FILE.exists():
+
+        document_result = load_json(DOCUMENT_ANALYSIS_FILE)
+        render_document_result(document_result)
+
+        st.divider()
+        render_report_exports(
+            [],
+            [],
+            [],
+            document_result=document_result,
+        )
+
+    elif REPORT_FILE.exists():
+
+        render_page_export(
+            "AI Analyst",
+            filtered_findings,
+            filtered_alerts,
+            filtered_mitre,
+        )
 
         report = REPORT_FILE.read_text(
             encoding="utf-8"
@@ -3214,24 +3783,25 @@ elif page == "AI Analyst":
 elif page == "Evidence":
 
     st.title(
-        "📚 Evidence Centre"
+        "Evidence Centre"
     )
 
     st.caption(
         "Technical evidence and validation context generated by the security pipeline."
     )
-
-    # ========================================================
-    # DATASET EVIDENCE
-    # ========================================================
+ 
+    render_page_export(
+        "Evidence",
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
+    )
 
     st.subheader(
         "Dataset Evidence"
     )
 
-    d1, d2, d3, d4 = st.columns(
-        4
-    )
+    d1, d2, d3, d4 = st.columns(4)
 
     with d1:
 
@@ -3263,17 +3833,11 @@ elif page == "Evidence":
 
     st.divider()
 
-    # ========================================================
-    # MITRE VALIDATION SUMMARY
-    # ========================================================
-
     st.subheader(
         "MITRE Validation"
     )
 
-    m1, m2, m3, m4 = st.columns(
-        4
-    )
+    m1, m2, m3, m4 = st.columns(4)
 
     with m1:
 
@@ -3286,9 +3850,7 @@ elif page == "Evidence":
 
         st.metric(
             "Candidates Evaluated",
-            len(
-                mitre_assessments
-            )
+            len(mitre_assessments)
         )
 
     with m3:
@@ -3307,17 +3869,11 @@ elif page == "Evidence":
 
     st.divider()
 
-    # ========================================================
-    # VALIDATION STATUS
-    # ========================================================
-
     st.subheader(
         "Validation Status"
     )
 
-    v1, v2, v3 = st.columns(
-        3
-    )
+    v1, v2, v3 = st.columns(3)
 
     with v1:
 
@@ -3355,20 +3911,13 @@ elif page == "Evidence":
 
     st.divider()
 
-    # ========================================================
-    # VALIDATION MODEL
-    # ========================================================
-
     st.subheader(
         "AI Validation Model"
     )
 
     validation_model = "GPT-5.6"
 
-    if isinstance(
-        mitre_data,
-        dict
-    ):
+    if isinstance(mitre_data, dict):
 
         validation_model = mitre_data.get(
             "validation_model",
@@ -3376,12 +3925,8 @@ elif page == "Evidence":
         )
 
     st.info(
-        f"🧠 Validation model: **{validation_model}**"
+        f"Validation model: {validation_model}"
     )
-
-    # ========================================================
-    # VALIDATION PRINCIPLES
-    # ========================================================
 
     st.subheader(
         "Validation Principles"
@@ -3389,10 +3934,7 @@ elif page == "Evidence":
 
     principles = []
 
-    if isinstance(
-        mitre_data,
-        dict
-    ):
+    if isinstance(mitre_data, dict):
 
         principles = mitre_data.get(
             "validation_methodology",
@@ -3416,14 +3958,10 @@ elif page == "Evidence":
     for principle in principles:
 
         st.success(
-            f"✓ {principle}"
+            f"{principle}"
         )
 
     st.divider()
-
-    # ========================================================
-    # MITRE ASSESSMENT VISUAL
-    # ========================================================
 
     st.subheader(
         "MITRE Assessment Overview"
@@ -3450,20 +3988,14 @@ elif page == "Evidence":
 
     if not mitre_visual_df.empty:
 
-        chart1, chart2 = st.columns(
-            [1, 1]
-        )
+        chart1, chart2 = st.columns(2)
 
         with chart1:
 
             fig = go.Figure(
                 go.Pie(
-                    labels=mitre_visual_df[
-                        "Assessment"
-                    ],
-                    values=mitre_visual_df[
-                        "Count"
-                    ],
+                    labels=mitre_visual_df["Assessment"],
+                    values=mitre_visual_df["Count"],
                     hole=0.60,
                     textinfo="label+value"
                 )
@@ -3473,13 +4005,7 @@ elif page == "Evidence":
                 template="plotly_dark",
                 height=350,
                 paper_bgcolor=PANEL,
-                plot_bgcolor=PANEL,
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=10,
-                    b=10
-                )
+                plot_bgcolor=PANEL
             )
 
             st.plotly_chart(
@@ -3508,20 +4034,7 @@ elif page == "Evidence":
                 template="plotly_dark",
                 height=350,
                 paper_bgcolor=PANEL,
-                plot_bgcolor=PANEL,
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=10,
-                    b=10
-                ),
-                yaxis=dict(
-                    title="Assessments",
-                    gridcolor="#29303d"
-                ),
-                xaxis=dict(
-                    title=""
-                )
+                plot_bgcolor=PANEL
             )
 
             st.plotly_chart(
@@ -3534,10 +4047,6 @@ elif page == "Evidence":
 
     st.divider()
 
-    # ========================================================
-    # FINDING-BY-FINDING ASSESSMENT
-    # ========================================================
-
     st.subheader(
         "Finding-by-Finding Assessment"
     )
@@ -3545,9 +4054,7 @@ elif page == "Evidence":
     if findings:
 
         finding_names = [
-            get_finding_name(
-                finding
-            )
+            get_finding_name(finding)
             for finding in findings
         ]
 
@@ -3576,14 +4083,12 @@ elif page == "Evidence":
             )
 
             with st.expander(
-                f"🎯 {finding_name}"
+                finding_name
             ):
 
                 if related_alert:
 
-                    a1, a2, a3 = st.columns(
-                        3
-                    )
+                    a1, a2, a3 = st.columns(3)
 
                     with a1:
 
@@ -3620,59 +4125,48 @@ elif page == "Evidence":
                 supported_items = [
                     item
                     for item in finding_mitre
-                    if item["status"]
-                    == "SUPPORTED"
+                    if item["status"] == "SUPPORTED"
                 ]
 
                 possible_items = [
                     item
                     for item in finding_mitre
-                    if item["status"]
-                    == "POSSIBLE"
+                    if item["status"] == "POSSIBLE"
                 ]
 
                 rejected_items = [
                     item
                     for item in finding_mitre
-                    if item["status"]
-                    == "NOT_SUPPORTED"
+                    if item["status"] == "NOT_SUPPORTED"
                 ]
 
-                r1, r2, r3 = st.columns(
-                    3
-                )
+                r1, r2, r3 = st.columns(3)
 
                 with r1:
 
                     st.metric(
                         "Supported",
-                        len(
-                            supported_items
-                        )
+                        len(supported_items)
                     )
 
                 with r2:
 
                     st.metric(
                         "Possible",
-                        len(
-                            possible_items
-                        )
+                        len(possible_items)
                     )
 
                 with r3:
 
                     st.metric(
                         "Not Supported",
-                        len(
-                            rejected_items
-                        )
+                        len(rejected_items)
                     )
 
                 if supported_items:
 
                     st.markdown(
-                        "##### 🟢 Supported"
+                        "##### Supported"
                     )
 
                     for item in supported_items:
@@ -3685,7 +4179,7 @@ elif page == "Evidence":
                 if possible_items:
 
                     st.markdown(
-                        "##### 🟡 Possible"
+                        "##### Possible"
                     )
 
                     for item in possible_items:
@@ -3698,7 +4192,7 @@ elif page == "Evidence":
                 if rejected_items:
 
                     st.markdown(
-                        "##### ⚪ Not Supported"
+                        "##### Not Supported"
                     )
 
                     for item in rejected_items[:10]:
@@ -3708,9 +4202,7 @@ elif page == "Evidence":
                             f"{item['technique_name']}"
                         )
 
-                    if len(
-                        rejected_items
-                    ) > 10:
+                    if len(rejected_items) > 10:
 
                         st.caption(
                             f"+ {len(rejected_items) - 10} "
@@ -3732,12 +4224,8 @@ elif page == "Evidence":
 
     st.divider()
 
-    # ========================================================
-    # EVIDENCE GAPS
-    # ========================================================
-
     st.subheader(
-        "⚠️ Evidence Gaps"
+        "Evidence Gaps"
     )
 
     evidence_gaps = []
@@ -3749,10 +4237,7 @@ elif page == "Evidence":
             []
         )
 
-        if isinstance(
-            gaps,
-            list
-        ):
+        if isinstance(gaps, list):
 
             for gap in gaps:
 
@@ -3763,7 +4248,6 @@ elif page == "Evidence":
                                 "finding",
                                 "Unknown"
                             ),
-
                         "Gap":
                             gap
                     }
@@ -3789,10 +4273,6 @@ elif page == "Evidence":
 
     st.divider()
 
-    # ========================================================
-    # TECHNICAL DATASET CAPABILITIES
-    # ========================================================
-
     st.subheader(
         "Telemetry Capabilities"
     )
@@ -3817,11 +4297,10 @@ elif page == "Evidence":
                             "_",
                             " "
                         ).title(),
-
                     "Available":
-                        "✓ Yes"
+                        "Yes"
                         if available
-                        else "✗ No"
+                        else "No"
                 }
             )
 
@@ -3843,13 +4322,219 @@ elif page == "Evidence":
 
 
 # ============================================================
+# REPORTS
+# ============================================================
+
+elif page == "Reports":
+
+    st.title("Reports")
+
+    st.caption(
+        "Filter the current security results and export the report "
+        "in the format required for SOC, audit or review workflows."
+    )
+
+    render_report_exports(
+        filtered_findings,
+        filtered_alerts,
+        filtered_mitre,
+    )
+
+    st.divider()
+
+    st.subheader("Filtered Report Preview")
+
+    st.write(
+        f"Findings: {len(filtered_findings)}"
+    )
+    st.write(
+        f"Alerts: {len(filtered_alerts)}"
+    )
+    st.write(
+        f"MITRE assessments: {len(filtered_mitre)}"
+    )
+
+    preview_rows = []
+
+    for alert in filtered_alerts:
+        preview_rows.append({
+            "Type": "Alert",
+            "Finding": alert.get("finding", "-"),
+            "Severity": alert.get("severity", "-"),
+            "Risk Score": alert.get("risk_score", 0),
+            "Confidence": alert.get("confidence", "-"),
+            "Status": alert.get("status", "-"),
+        })
+
+    for item in filtered_mitre:
+        preview_rows.append({
+            "Type": "MITRE",
+            "Finding": item.get("finding", "-"),
+            "Severity": "",
+            "Risk Score": "",
+            "Confidence": "",
+            "Status": item.get("status", "-"),
+        })
+
+    if preview_rows:
+        st.dataframe(
+            pd.DataFrame(preview_rows),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No records match the active filters.")
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+elif page == "Settings":
+
+    st.title("Settings")
+    st.caption(
+        "Configure how the AI Security Copilot displays, analyses and exports security material."
+    )
+
+    st.subheader("Analysis Settings")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.checkbox(
+            "Show evidence limitations",
+            value=True,
+            key="setting_evidence_limitations",
+            help="Keep evidence gaps and telemetry limitations visible in analysis pages and exports.",
+        )
+
+        st.checkbox(
+            "Show rejected MITRE candidates",
+            value=True,
+            key="setting_mitre_rejected",
+            help="Display candidates that were evaluated but not supported by the available evidence.",
+        )
+
+    with c2:
+        st.checkbox(
+            "Show technical evidence",
+            value=True,
+            key="setting_technical_evidence",
+            help="Display technical evidence tables where available.",
+        )
+
+        st.checkbox(
+            "Show confidence indicators",
+            value=True,
+            key="setting_confidence",
+            help="Display confidence values for alerts and AI assessments.",
+        )
+
+    st.divider()
+
+    st.subheader("Export Settings")
+
+    export_format = st.selectbox(
+        "Preferred export format",
+        ["PDF", "DOCX", "XLSX", "CSV", "JSON", "TXT", "Markdown"],
+        index=0,
+        key="setting_export_format",
+    )
+
+    st.caption(
+        f"Preferred format: {export_format}. All export formats remain available from each page."
+    )
+
+    st.divider()
+
+    st.subheader("Data & Privacy")
+
+    st.info(
+        "Uploaded security material is processed by this application for analysis. "
+        "Do not upload passwords, API keys, private certificates or other secrets."
+    )
+
+    st.subheader("Supported Security Material")
+
+    supported_display = [
+        str(ext).upper()
+        for ext in sorted(SUPPORTED_EXTENSIONS)
+    ]
+
+    st.write(", ".join(supported_display))
+
+    st.caption(
+        "Structured telemetry follows the network/security-data pipeline. "
+        "Documents and images use document/image analysis and are not treated as network telemetry."
+    )
+
+    st.divider()
+
+    st.subheader("Current Analysis")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        st.metric("Dataset", dataset_name)
+
+    with c2:
+        st.metric("Events", f"{total_events:,}")
+
+    with c3:
+        st.metric("Findings", len(filtered_findings))
+
+    with c4:
+        st.metric("Alerts", len(filtered_alerts))
+
+    st.divider()
+
+    st.subheader("Analysis History")
+
+    history = load_analysis_history()
+    status = load_json(ANALYSIS_STATUS_FILE)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.metric("Total Analyses", len(history))
+
+    with c2:
+        st.metric("Last Status", status.get("status", "IDLE"))
+
+    if history:
+        settings_history_rows = []
+
+        for item in reversed(history):
+            settings_history_rows.append(
+                {
+                    "Run": item.get("analysis_number", "-"),
+                    "Dataset": item.get("dataset_name", "-"),
+                    "Started": format_timestamp(item.get("started_at")),
+                    "Completed": format_timestamp(item.get("completed_at")),
+                    "Duration": format_duration(item.get("duration_seconds")),
+                    "Events": int(item.get("events", 0)),
+                    "Findings": int(item.get("findings", 0)),
+                    "Alerts": int(item.get("alerts", 0)),
+                    "Mode": item.get("mode", "-"),
+                }
+            )
+
+        st.dataframe(
+            pd.DataFrame(settings_history_rows),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
+# ============================================================
 # FOOTER
 # ============================================================
 
 st.divider()
 
 st.caption(
-    "🛡️ AI Security Copilot  •  "
+    "AI Security Copilot  •  "
     "Behavioural Analytics  •  "
     "MITRE ATT&CK  •  "
     "Evidence-Based Triage"

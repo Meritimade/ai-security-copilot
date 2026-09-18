@@ -42,3 +42,12 @@ security_schema.json
 security_alerts.json
 security_report.json
 ai_security_report.txt
+# Local uploads and analysis history
+Uploads/
+analysis_history.json
+analysis_status.json
+
+# Generated MITRE analysis outputs
+MITRE/mitre_candidates.json
+MITRE/mitre_evaluated.json
+MITRE/mitre_technique_index.json

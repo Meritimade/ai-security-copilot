@@ -8,11 +8,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
-DATA_FILE = (
+PROCESSED_DIR = (
     BASE_DIR
     / "Data"
     / "processed"
-    / "02-14-2018_clean.csv"
 )
 
 
@@ -25,6 +24,28 @@ def print_section(title):
     print("=" * 70)
     print(title)
     print("=" * 70)
+
+
+def discover_processed_datasets():
+    """
+    Discover every CSV dataset currently available in the
+    processed data directory.
+
+    No dataset filename is hard-coded.
+    """
+
+    if not PROCESSED_DIR.exists():
+        return []
+
+    datasets = sorted(
+        PROCESSED_DIR.glob("*.csv")
+    )
+
+    return [
+        path
+        for path in datasets
+        if path.is_file()
+    ]
 
 
 def detect_timestamp_column(df):
@@ -49,7 +70,7 @@ def detect_timestamp_column(df):
         if column in df.columns:
             return column
 
-    # Fallback: semantic search
+    # Semantic fallback
     for column in df.columns:
 
         name = str(column).strip().lower()
@@ -68,18 +89,11 @@ def detect_timestamp_column(df):
 def parse_timestamp_safely(series):
     """
     Parse timestamps while avoiding accidental interpretation
-    of numeric-looking values as nanoseconds from Unix epoch.
-
-    Strategy:
-    1. Convert everything to strings.
-    2. Parse normal textual timestamps first.
-    3. Separately inspect numeric-looking values.
-    4. Try common Unix timestamp units only when appropriate.
+    of numeric-looking values as nanoseconds.
     """
 
     original = series.copy()
 
-    # Convert to pandas string representation.
     text = original.astype("string").str.strip()
 
     result = pd.Series(
@@ -89,7 +103,7 @@ def parse_timestamp_safely(series):
     )
 
     # --------------------------------------------------------
-    # 1. Parse textual date/time values
+    # 1. Parse textual timestamps
     # --------------------------------------------------------
 
     textual_mask = (
@@ -112,7 +126,7 @@ def parse_timestamp_safely(series):
         result.loc[textual_mask] = parsed_text
 
     # --------------------------------------------------------
-    # 2. Parse numeric timestamps separately
+    # 2. Parse numeric timestamps
     # --------------------------------------------------------
 
     numeric_mask = (
@@ -130,51 +144,32 @@ def parse_timestamp_safely(series):
             errors="coerce"
         )
 
-        # Determine likely unit based on magnitude.
-        #
-        # Seconds:
-        # approximately 10 digits for modern Unix timestamps.
-        #
-        # Milliseconds:
-        # approximately 13 digits.
-        #
-        # Microseconds:
-        # approximately 16 digits.
-        #
-        # Nanoseconds:
-        # approximately 19 digits.
-
         abs_values = numeric_values.abs()
 
-        seconds_mask = (
-            abs_values.between(
-                1_000_000_000,
-                10_000_000_000
-            )
+        # Unix seconds
+        seconds_mask = abs_values.between(
+            1_000_000_000,
+            10_000_000_000
         )
 
-        milliseconds_mask = (
-            abs_values.between(
-                1_000_000_000_000,
-                10_000_000_000_000
-            )
+        # Unix milliseconds
+        milliseconds_mask = abs_values.between(
+            1_000_000_000_000,
+            10_000_000_000_000
         )
 
-        microseconds_mask = (
-            abs_values.between(
-                1_000_000_000_000_000,
-                10_000_000_000_000_000
-            )
+        # Unix microseconds
+        microseconds_mask = abs_values.between(
+            1_000_000_000_000_000,
+            10_000_000_000_000_000
         )
 
-        nanoseconds_mask = (
-            abs_values.between(
-                1_000_000_000_000_000_000,
-                10_000_000_000_000_000_000
-            )
+        # Unix nanoseconds
+        nanoseconds_mask = abs_values.between(
+            1_000_000_000_000_000_000,
+            10_000_000_000_000_000_000
         )
 
-        # Seconds
         if seconds_mask.any():
 
             parsed = pd.to_datetime(
@@ -187,7 +182,6 @@ def parse_timestamp_safely(series):
                 numeric_values.loc[seconds_mask].index
             ] = parsed
 
-        # Milliseconds
         if milliseconds_mask.any():
 
             parsed = pd.to_datetime(
@@ -200,7 +194,6 @@ def parse_timestamp_safely(series):
                 numeric_values.loc[milliseconds_mask].index
             ] = parsed
 
-        # Microseconds
         if microseconds_mask.any():
 
             parsed = pd.to_datetime(
@@ -213,7 +206,6 @@ def parse_timestamp_safely(series):
                 numeric_values.loc[microseconds_mask].index
             ] = parsed
 
-        # Nanoseconds
         if nanoseconds_mask.any():
 
             parsed = pd.to_datetime(
@@ -229,6 +221,41 @@ def parse_timestamp_safely(series):
     return result
 
 
+def detect_label_columns(df):
+    """
+    Detect common security label fields dynamically.
+    """
+
+    label_names = {
+        "label",
+        "class",
+        "attack",
+        "attack_type",
+        "category",
+        "target"
+    }
+
+    return [
+        column
+        for column in df.columns
+        if str(column).strip().lower() in label_names
+    ]
+
+
+def detect_field(df, candidates):
+    """
+    Return the first matching field from a list of possible
+    column names.
+    """
+
+    for candidate in candidates:
+
+        if candidate in df.columns:
+            return candidate
+
+    return None
+
+
 # ============================================================
 # START
 # ============================================================
@@ -237,30 +264,93 @@ print("=" * 70)
 print("SECURITY DATA VALIDATION")
 print("=" * 70)
 
-print()
-print(f"Loading: {DATA_FILE}")
+
+# ============================================================
+# DISCOVER DATASETS
+# ============================================================
+
+print_section(
+    "DATASET DISCOVERY"
+)
+
+datasets = discover_processed_datasets()
 
 
-if not DATA_FILE.exists():
+if not datasets:
 
     raise FileNotFoundError(
-        f"Dataset not found:\n{DATA_FILE}"
+        "No processed CSV datasets were found in:\n"
+        f"{PROCESSED_DIR}"
+    )
+
+
+print(
+    f"Processed datasets discovered: "
+    f"{len(datasets)}"
+)
+
+for dataset in datasets:
+
+    print(
+        f"  - {dataset.name}"
     )
 
 
 # ============================================================
-# LOAD DATA
+# LOAD ALL PROCESSED DATASETS
 # ============================================================
 
-df = pd.read_csv(
-    DATA_FILE,
-    low_memory=False
+frames = []
+
+for dataset in datasets:
+
+    print()
+    print(
+        f"Loading: {dataset.name}"
+    )
+
+    current_df = pd.read_csv(
+        dataset,
+        low_memory=False
+    )
+
+    # Keep track of the originating dataset.
+    current_df["Source_File"] = dataset.name
+
+    print(
+        f"  Rows: {len(current_df):,}"
+    )
+
+    print(
+        f"  Columns: {len(current_df.columns):,}"
+    )
+
+    frames.append(current_df)
+
+
+if not frames:
+
+    raise FileNotFoundError(
+        "No readable processed datasets were found."
+    )
+
+
+# Combine datasets for validation.
+df = pd.concat(
+    frames,
+    ignore_index=True,
+    sort=False
 )
 
 
 print()
-print(f"Rows: {len(df):,}")
-print(f"Columns: {len(df.columns)}")
+print(
+    f"Combined rows: {len(df):,}"
+)
+
+print(
+    f"Combined columns: {len(df.columns):,}"
+)
 
 
 # ============================================================
@@ -272,7 +362,10 @@ print_section(
 )
 
 for column in df.columns:
-    print(f"  - {column}")
+
+    print(
+        f"  - {column}"
+    )
 
 
 # ============================================================
@@ -283,8 +376,20 @@ print_section(
     "DUPLICATE RECORD CHECK"
 )
 
+# Exclude Source_File from duplicate detection because
+# identical telemetry appearing in different files should
+# still be considered duplicate telemetry.
+
+duplicate_columns = [
+    column
+    for column in df.columns
+    if column != "Source_File"
+]
+
 duplicate_count = int(
-    df.duplicated().sum()
+    df.duplicated(
+        subset=duplicate_columns
+    ).sum()
 )
 
 print(
@@ -311,11 +416,15 @@ for column in numeric_columns:
 
     count = int(
         df[column]
-        .isin([float("inf"), float("-inf")])
+        .isin([
+            float("inf"),
+            float("-inf")
+        ])
         .sum()
     )
 
     infinite_count += count
+
 
 if infinite_count == 0:
 
@@ -355,7 +464,9 @@ if len(missing) == 0:
 
 else:
 
-    print(missing)
+    print(
+        missing
+    )
 
 
 # ============================================================
@@ -366,27 +477,22 @@ print_section(
     "SECURITY LABEL CHECK"
 )
 
-label_candidates = [
-    column
-    for column in df.columns
-    if str(column).strip().lower()
-    in {
-        "label",
-        "class",
-        "attack",
-        "attack_type",
-        "category",
-        "target"
-    }
-]
+label_candidates = detect_label_columns(
+    df
+)
 
 
 if label_candidates:
 
     print(
-        f"Security label column(s) detected: "
-        f"{label_candidates}"
+        "Security label column(s) detected:"
     )
+
+    for label_column in label_candidates:
+
+        print(
+            f"  - {label_column}"
+        )
 
     dataset_mode = "LABELLED"
 
@@ -400,14 +506,16 @@ if label_candidates:
 
         print(
             df[label_column]
-            .value_counts(dropna=False)
+            .value_counts(
+                dropna=False
+            )
             .head(20)
         )
 
 else:
 
     print(
-        "No Label column detected."
+        "No security label column detected."
     )
 
     print(
@@ -444,8 +552,8 @@ if timestamp_column is None:
 else:
 
     print(
-        f"Timestamp candidate(s): "
-        f"['{timestamp_column}']"
+        f"Timestamp column detected: "
+        f"{timestamp_column}"
     )
 
     parsed_timestamps = parse_timestamp_safely(
@@ -488,10 +596,6 @@ else:
             f"  Latest: {latest}"
         )
 
-        # ----------------------------------------------------
-        # Detect suspiciously old timestamps
-        # ----------------------------------------------------
-
         suspicious_cutoff = pd.Timestamp(
             "2000-01-01"
         )
@@ -515,7 +619,6 @@ else:
                 "some timestamps are unexpectedly old."
             )
 
-            # Show examples to help diagnose the source.
             print()
             print(
                 "  Example raw timestamp values:"
@@ -528,6 +631,7 @@ else:
             ].head(10)
 
             for value in examples:
+
                 print(
                     f"    {repr(value)}"
                 )
@@ -618,6 +722,7 @@ print_section(
 )
 
 network_fields = {
+
     "Destination Port": [
         "Dst Port",
         "Destination Port",
@@ -656,13 +761,10 @@ network_fields = {
 
 for display_name, candidates in network_fields.items():
 
-    detected = None
-
-    for candidate in candidates:
-
-        if candidate in df.columns:
-            detected = candidate
-            break
+    detected = detect_field(
+        df,
+        candidates
+    )
 
     if detected:
 
@@ -679,11 +781,16 @@ for display_name, candidates in network_fields.items():
 
 
 # ============================================================
-# VALIDATION SUMMARY
+# DATASET SUMMARY
 # ============================================================
 
 print_section(
-    "VALIDATION SUMMARY"
+    "DATASET SUMMARY"
+)
+
+print(
+    f"Datasets validated: "
+    f"{len(datasets)}"
 )
 
 print(
@@ -698,7 +805,7 @@ print(
 
 print(
     f"Columns validated: "
-    f"{len(df.columns)}"
+    f"{len(df.columns):,}"
 )
 
 print(
@@ -706,13 +813,48 @@ print(
     f"{duplicate_count:,}"
 )
 
-print()
-
 print(
-    "Validation complete."
+    f"Infinite values: "
+    f"{infinite_count:,}"
+)
+
+
+# ============================================================
+# PER-FILE SUMMARY
+# ============================================================
+
+print_section(
+    "PER-DATASET SUMMARY"
+)
+
+for dataset in datasets:
+
+    dataset_rows = int(
+        (
+            df["Source_File"]
+            == dataset.name
+        ).sum()
+    )
+
+    print(
+        f"{dataset.name}: "
+        f"{dataset_rows:,} rows"
+    )
+
+
+# ============================================================
+# COMPLETION
+# ============================================================
+
+print_section(
+    "VALIDATION COMPLETE"
 )
 
 print(
-    "The dataset is ready for schema discovery "
+    "All discovered processed datasets were validated."
+)
+
+print(
+    "The datasets are ready for schema discovery "
     "and behavioural security analysis."
 )

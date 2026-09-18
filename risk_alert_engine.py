@@ -30,6 +30,15 @@ SEVERITY_ORDER = {
 
 
 # ============================================================
+# RISK MODEL VERSION
+# ============================================================
+
+RISK_MODEL_VERSION = "2.0"
+
+MAX_SCORE = 100
+
+
+# ============================================================
 # LOAD JSON
 # ============================================================
 
@@ -102,11 +111,35 @@ def safe_number(
         return default
 
 
+def clamp(
+    value,
+    minimum=0,
+    maximum=100
+):
+
+    return max(
+        minimum,
+        min(
+            maximum,
+            value
+        )
+    )
+
+
 def current_timestamp():
 
     return datetime.now(
         timezone.utc
     ).isoformat()
+
+
+def normalise_text(value):
+
+    return str(
+        value
+        if value is not None
+        else ""
+    ).strip()
 
 
 # ============================================================
@@ -305,19 +338,7 @@ def collect_mitre(
 
 
 # ============================================================
-# EXTRACT RAW MITRE ASSESSMENTS
-# ============================================================
-
-mitre_items = []
-
-collect_mitre(
-    mitre_data,
-    mitre_items
-)
-
-
-# ============================================================
-# NORMALISE MITRE STATUS
+# MITRE STATUS
 # ============================================================
 
 def normalise_mitre_status(
@@ -353,21 +374,33 @@ def normalise_mitre_status(
 
 
 # ============================================================
-# DEDUPLICATE MITRE ASSESSMENTS
+# EXTRACT MITRE ASSESSMENTS
+# ============================================================
+
+mitre_items = []
+
+collect_mitre(
+    mitre_data,
+    mitre_items
+)
+
+
+# ============================================================
+# DEDUPLICATE MITRE
 # ============================================================
 
 unique_mitre = {}
 
 for item in mitre_items:
 
-    technique_id = str(
+    technique_id = normalise_text(
         item.get(
             "technique_id",
             ""
         )
     )
 
-    finding_name = str(
+    finding_name = normalise_text(
         item.get(
             "finding",
             item.get(
@@ -409,7 +442,7 @@ mitre_by_finding = {}
 
 for item in mitre_items:
 
-    finding_name = str(
+    finding_name = normalise_text(
         item.get(
             "finding",
             item.get(
@@ -605,6 +638,14 @@ def build_evidence_summary(
             reverse=True
         )[:5]
 
+        total_port_records = sum(
+            safe_number(
+                count
+            )
+            for _, count
+            in ports.items()
+        )
+
         port_text = ", ".join(
             [
                 f"port {port} "
@@ -619,6 +660,24 @@ def build_evidence_summary(
             + port_text
             + "."
         )
+
+        if total_port_records > 0:
+
+            top_port_count = safe_number(
+                top_ports[0][1]
+            )
+
+            top_port_share = (
+                top_port_count
+                / total_port_records
+            ) * 100
+
+            evidence_items.append(
+                f"The dominant destination port "
+                f"accounts for approximately "
+                f"{top_port_share:.2f}% of the "
+                f"finding's port-attributed records."
+            )
 
     # --------------------------------------------------------
     # PROTOCOLS
@@ -740,10 +799,6 @@ def build_evidence_gaps(
                 gaps.append(
                     text
                 )
-
-    # --------------------------------------------------------
-    # ADD IMPORTANT TELEMETRY GAPS
-    # --------------------------------------------------------
 
     gap_text = " ".join(
         gaps
@@ -868,10 +923,6 @@ def build_defensive_actions(
         "classification"
     ]
 
-    # --------------------------------------------------------
-    # BENIGN
-    # --------------------------------------------------------
-
     if classification == "benign":
 
         actions.append(
@@ -885,10 +936,6 @@ def build_defensive_actions(
         )
 
         return actions
-
-    # --------------------------------------------------------
-    # GENERAL SECURITY ACTIONS
-    # --------------------------------------------------------
 
     actions.append(
         "Correlate the finding with "
@@ -930,6 +977,505 @@ def build_defensive_actions(
 
 
 # ============================================================
+# RISK MODEL
+# ============================================================
+
+def calculate_prevalence_component(
+    percentage
+):
+
+    """
+    Maximum: 15 points.
+
+    This measures how much of the analysed
+    dataset is represented by the finding.
+
+    It does NOT mean that a larger percentage
+    automatically means malicious behaviour.
+    """
+
+    percentage = max(
+        0,
+        percentage
+    )
+
+    if percentage >= 50:
+        score = 15
+
+    elif percentage >= 25:
+        score = 12
+
+    elif percentage >= 10:
+        score = 9
+
+    elif percentage >= 5:
+        score = 6
+
+    elif percentage >= 1:
+        score = 3
+
+    else:
+        score = 1
+
+    return {
+        "score": score,
+        "maximum": 15,
+        "percentage": round(
+            percentage,
+            4
+        ),
+        "reason":
+            "Finding prevalence within the analysed dataset."
+    }
+
+
+def calculate_port_concentration_component(
+    finding
+):
+
+    """
+    Maximum: 15 points.
+
+    Measures concentration of observed
+    destination-port activity.
+
+    Concentration is treated as a behavioural
+    signal, not proof of malicious activity.
+    """
+
+    ports = finding[
+        "ports"
+    ]
+
+    if not isinstance(
+        ports,
+        dict
+    ) or not ports:
+
+        return {
+            "score": 0,
+            "maximum": 15,
+            "top_port": None,
+            "top_port_share": 0,
+            "reason":
+                "Destination-port distribution unavailable."
+        }
+
+    values = []
+
+    for port, count in ports.items():
+
+        numeric_count = safe_number(
+            count
+        )
+
+        if numeric_count > 0:
+
+            values.append(
+                (
+                    str(port),
+                    numeric_count
+                )
+            )
+
+    if not values:
+
+        return {
+            "score": 0,
+            "maximum": 15,
+            "top_port": None,
+            "top_port_share": 0,
+            "reason":
+                "No usable destination-port counts."
+        }
+
+    total = sum(
+        count
+        for _, count
+        in values
+    )
+
+    top_port, top_count = max(
+        values,
+        key=lambda x: x[1]
+    )
+
+    share = (
+        top_count / total
+    ) * 100
+
+    if share >= 99:
+        score = 15
+
+    elif share >= 90:
+        score = 12
+
+    elif share >= 75:
+        score = 9
+
+    elif share >= 50:
+        score = 6
+
+    elif share >= 25:
+        score = 3
+
+    else:
+        score = 1
+
+    return {
+        "score": score,
+        "maximum": 15,
+        "top_port": top_port,
+        "top_port_share": round(
+            share,
+            4
+        ),
+        "reason":
+            "Concentration of destination-port activity."
+    }
+
+
+def calculate_protocol_concentration_component(
+    finding
+):
+
+    """
+    Maximum: 10 points.
+
+    Measures concentration of observed
+    protocol values.
+    """
+
+    protocols = finding[
+        "protocols"
+    ]
+
+    if not isinstance(
+        protocols,
+        dict
+    ) or not protocols:
+
+        return {
+            "score": 0,
+            "maximum": 10,
+            "top_protocol": None,
+            "top_protocol_share": 0,
+            "reason":
+                "Protocol distribution unavailable."
+        }
+
+    values = []
+
+    for protocol, count in protocols.items():
+
+        numeric_count = safe_number(
+            count
+        )
+
+        if numeric_count > 0:
+
+            values.append(
+                (
+                    str(protocol),
+                    numeric_count
+                )
+            )
+
+    if not values:
+
+        return {
+            "score": 0,
+            "maximum": 10,
+            "top_protocol": None,
+            "top_protocol_share": 0,
+            "reason":
+                "No usable protocol counts."
+        }
+
+    total = sum(
+        count
+        for _, count
+        in values
+    )
+
+    top_protocol, top_count = max(
+        values,
+        key=lambda x: x[1]
+    )
+
+    share = (
+        top_count / total
+    ) * 100
+
+    if share >= 99:
+        score = 10
+
+    elif share >= 90:
+        score = 8
+
+    elif share >= 75:
+        score = 6
+
+    elif share >= 50:
+        score = 4
+
+    elif share >= 25:
+        score = 2
+
+    else:
+        score = 1
+
+    return {
+        "score": score,
+        "maximum": 10,
+        "top_protocol": top_protocol,
+        "top_protocol_share": round(
+            share,
+            4
+        ),
+        "reason":
+            "Concentration of protocol activity."
+    }
+
+
+def calculate_temporal_component(
+    finding
+):
+
+    """
+    Maximum: 10 points.
+
+    Temporal concentration is based on the
+    presence of a peak period/hour in the
+    supplied evidence.
+
+    It is a prioritisation signal only.
+    """
+
+    temporal = finding[
+        "temporal"
+    ]
+
+    if not isinstance(
+        temporal,
+        dict
+    ):
+
+        return {
+            "score": 0,
+            "maximum": 10,
+            "peak_share": None,
+            "reason":
+                "Temporal evidence unavailable."
+        }
+
+    peak_share = None
+
+    candidate_keys = [
+        "peak_hour_percentage",
+        "peak_period_percentage",
+        "peak_percentage",
+        "peak_share",
+        "peak_hour_share"
+    ]
+
+    for key in candidate_keys:
+
+        if key in temporal:
+
+            value = safe_number(
+                temporal.get(
+                    key
+                ),
+                None
+            )
+
+            if value is not None:
+
+                peak_share = value
+
+                break
+
+    if peak_share is None:
+
+        return {
+            "score": 2,
+            "maximum": 10,
+            "peak_share": None,
+            "reason":
+                "Temporal window is available, "
+                "but peak-period share is not explicitly supplied."
+        }
+
+    if peak_share >= 75:
+        score = 10
+
+    elif peak_share >= 60:
+        score = 8
+
+    elif peak_share >= 40:
+        score = 6
+
+    elif peak_share >= 25:
+        score = 4
+
+    elif peak_share >= 10:
+        score = 2
+
+    else:
+        score = 1
+
+    return {
+        "score": score,
+        "maximum": 10,
+        "peak_share": round(
+            peak_share,
+            4
+        ),
+        "reason":
+            "Concentration of observed activity within a peak period."
+    }
+
+
+def calculate_mitre_component(
+    mitre
+):
+
+    """
+    Maximum: 25 points.
+
+    Only evidence validation affects this
+    component.
+
+    SUPPORTED = stronger validated evidence.
+    POSSIBLE = evidence is consistent but not confirmed.
+    NOT_SUPPORTED = no contribution.
+    """
+
+    supported = int(
+        mitre.get(
+            "supported",
+            0
+        )
+    )
+
+    possible = int(
+        mitre.get(
+            "possible",
+            0
+        )
+    )
+
+    if supported > 0:
+
+        score = 25
+
+        reason = (
+            f"{supported} MITRE technique(s) "
+            "were assessed as SUPPORTED by the "
+            "evidence-validation stage."
+        )
+
+    elif possible > 0:
+
+        score = 10
+
+        reason = (
+            f"{possible} MITRE technique(s) "
+            "were assessed as POSSIBLE. "
+            "Possible techniques are not treated "
+            "as confirmed."
+        )
+
+    else:
+
+        score = 0
+
+        reason = (
+            "No MITRE technique was validated "
+            "as supported or possible."
+        )
+
+    return {
+        "score": score,
+        "maximum": 25,
+        "supported": supported,
+        "possible": possible,
+        "reason": reason
+    }
+
+
+# ============================================================
+# EVIDENCE CONFIDENCE
+# ============================================================
+
+def calculate_confidence(
+    finding,
+    mitre
+):
+
+    """
+    Confidence is separate from risk.
+
+    More telemetry does not automatically increase
+    risk. It can, however, increase confidence in
+    the analytical assessment.
+    """
+
+    classification = finding[
+        "classification"
+    ]
+
+    limitations = finding[
+        "limitations"
+    ]
+
+    if not isinstance(
+        limitations,
+        list
+    ):
+
+        limitations = []
+
+    limitation_count = len(
+        [
+            item
+            for item
+            in limitations
+            if str(item).strip()
+        ]
+    )
+
+    supported = mitre[
+        "supported"
+    ]
+
+    possible = mitre[
+        "possible"
+    ]
+
+    if classification == "benign":
+
+        return "High"
+
+    if supported > 0:
+
+        if limitation_count <= 3:
+            return "High"
+
+        return "Medium"
+
+    if possible > 0:
+
+        if limitation_count <= 3:
+            return "Medium"
+
+        return "Low"
+
+    return "Low"
+
+
+# ============================================================
 # RISK CALCULATION
 # ============================================================
 
@@ -940,10 +1486,6 @@ def calculate_risk(
 
     classification = finding[
         "classification"
-    ]
-
-    percentage = finding[
-        "percentage"
     ]
 
     # --------------------------------------------------------
@@ -962,77 +1504,93 @@ def calculate_risk(
 
             "confidence":
                 "High",
+
+            "model_version":
+                RISK_MODEL_VERSION,
+
+            "components": {},
+
+            "baseline":
+                {
+                    "type":
+                        "labelled_baseline",
+
+                    "description":
+                        "The finding is classified as benign "
+                        "by the supplied dataset evidence. "
+                        "It is displayed as a baseline reference "
+                        "and does not contribute threat risk."
+                },
+
+            "interpretation":
+                "Informational baseline activity."
         }
 
     # --------------------------------------------------------
-    # BASE SCORE
+    # COMPONENTS
     # --------------------------------------------------------
 
-    score = 20
+    prevalence = (
+        calculate_prevalence_component(
+            finding[
+                "percentage"
+            ]
+        )
+    )
+
+    port_concentration = (
+        calculate_port_concentration_component(
+            finding
+        )
+    )
+
+    protocol_concentration = (
+        calculate_protocol_concentration_component(
+            finding
+        )
+    )
+
+    temporal = (
+        calculate_temporal_component(
+            finding
+        )
+    )
+
+    mitre_component = (
+        calculate_mitre_component(
+            mitre
+        )
+    )
 
     # --------------------------------------------------------
-    # PREVALENCE
+    # TOTAL
     # --------------------------------------------------------
 
-    if percentage >= 25:
+    score = (
+        prevalence["score"]
+        + port_concentration["score"]
+        + protocol_concentration["score"]
+        + temporal["score"]
+        + mitre_component["score"]
+    )
 
-        score += 20
-
-    elif percentage >= 15:
-
-        score += 15
-
-    elif percentage >= 10:
-
-        score += 10
-
-    elif percentage >= 5:
-
-        score += 5
-
-    # --------------------------------------------------------
-    # MITRE SUPPORT
-    # --------------------------------------------------------
-
-    if mitre[
-        "supported"
-    ] > 0:
-
-        score += 35
-
-    elif mitre[
-        "possible"
-    ] > 0:
-
-        score += 15
+    score = int(
+        round(
+            clamp(
+                score,
+                0,
+                MAX_SCORE
+            )
+        )
+    )
 
     # --------------------------------------------------------
     # CONFIDENCE
     # --------------------------------------------------------
 
-    if mitre[
-        "supported"
-    ] > 0:
-
-        confidence = "High"
-
-    elif mitre[
-        "possible"
-    ] > 0:
-
-        confidence = "Medium"
-
-    else:
-
-        confidence = "Low"
-
-    # --------------------------------------------------------
-    # LIMIT
-    # --------------------------------------------------------
-
-    score = min(
-        score,
-        100
+    confidence = calculate_confidence(
+        finding,
+        mitre
     )
 
     # --------------------------------------------------------
@@ -1051,9 +1609,17 @@ def calculate_risk(
 
         severity = "Medium"
 
-    else:
+    elif score >= 15:
 
         severity = "Low"
+
+    else:
+
+        severity = "Informational"
+
+    # --------------------------------------------------------
+    # BASELINE
+    # --------------------------------------------------------
 
     return {
 
@@ -1065,6 +1631,46 @@ def calculate_risk(
 
         "confidence":
             confidence,
+
+        "model_version":
+            RISK_MODEL_VERSION,
+
+        "components": {
+
+            "prevalence": prevalence,
+
+            "destination_port_concentration":
+                port_concentration,
+
+            "protocol_concentration":
+                protocol_concentration,
+
+            "temporal_concentration":
+                temporal,
+
+            "mitre_validation":
+                mitre_component,
+        },
+
+        "maximum_possible_score":
+            MAX_SCORE,
+
+        "baseline":
+            {
+                "type":
+                    "behavioural_prioritisation",
+
+                "description":
+                    "The score is calculated from observed "
+                    "characteristics of the finding and "
+                    "validated MITRE evidence. It is not "
+                    "a probability of compromise and does "
+                    "not use a fixed attack-specific score."
+            },
+
+        "interpretation":
+            "Analytical prioritisation score requiring "
+            "analyst investigation and contextual validation."
     }
 
 
@@ -1123,7 +1729,7 @@ def generate_alerts(
             status = "Needs Investigation"
 
         # ----------------------------------------------------
-        # BUILD SUPPORTING INFORMATION
+        # SUPPORTING INFORMATION
         # ----------------------------------------------------
 
         evidence_summary = (
@@ -1173,6 +1779,11 @@ def generate_alerts(
             "risk_score":
                 risk["score"],
 
+            "risk_model_version":
+                risk[
+                    "model_version"
+                ],
+
             "status":
                 status,
 
@@ -1193,6 +1804,9 @@ def generate_alerts(
                     ],
                     4
                 ),
+
+            "risk_calculation":
+                risk,
 
             "evidence":
                 evidence_summary,
@@ -1245,10 +1859,6 @@ dataset_mode = evidence.get(
     "dataset_mode",
     "UNKNOWN"
 )
-
-# IMPORTANT:
-# Dataset type is taken from the authoritative
-# security_schema.json rather than evidence JSON.
 
 dataset_type = schema.get(
     "dataset_type",
@@ -1324,6 +1934,136 @@ for alert in alerts:
 
 
 # ============================================================
+# METHODOLOGY
+# ============================================================
+
+methodology = {
+
+    "risk_model_version":
+        RISK_MODEL_VERSION,
+
+    "score_range":
+        "0-100",
+
+    "score_type":
+        "Analytical prioritisation score",
+
+    "not_probability":
+        True,
+
+    "description":
+        "Risk is prioritised using observed "
+        "behavioural characteristics and independently "
+        "validated MITRE ATT&CK evidence.",
+
+    "components": {
+
+        "prevalence":
+            {
+                "maximum":
+                    15,
+
+                "description":
+                    "Measures how much of the analysed "
+                    "dataset is represented by the finding."
+            },
+
+        "destination_port_concentration":
+            {
+                "maximum":
+                    15,
+
+                "description":
+                    "Measures concentration of destination-port "
+                    "activity within the finding."
+            },
+
+        "protocol_concentration":
+            {
+                "maximum":
+                    10,
+
+                "description":
+                    "Measures concentration of protocol activity "
+                    "within the finding."
+            },
+
+        "temporal_concentration":
+            {
+                "maximum":
+                    10,
+
+                "description":
+                    "Measures concentration of activity within "
+                    "an observed peak period when supplied."
+            },
+
+        "mitre_validation":
+            {
+                "maximum":
+                    25,
+
+                "supported":
+                    25,
+
+                "possible":
+                    10,
+
+                "not_supported":
+                    0,
+
+                "description":
+                    "Only evidence-validation results contribute "
+                    "to the MITRE component. Candidate retrieval "
+                    "alone does not increase risk."
+            },
+    },
+
+    "maximum_component_score":
+        75,
+
+    "score_note":
+        "The currently defined evidence components have a "
+        "maximum of 75 points. The remaining score range is "
+        "intentionally unused rather than filled with an "
+        "arbitrary base score.",
+
+    "baseline_policy":
+        "There is no universal fixed threat baseline. "
+        "Labelled benign activity is treated as a dataset "
+        "baseline reference. Non-benign findings are "
+        "prioritised from their observed characteristics "
+        "and validated evidence.",
+
+    "label_policy":
+        "Dataset labels are contextual evidence and are not "
+        "treated as independent proof of malicious behaviour.",
+
+    "mitre_policy":
+        "POSSIBLE is not treated as SUPPORTED. "
+        "NOT_SUPPORTED candidates contribute zero risk.",
+
+    "confidence_policy":
+        "Confidence is reported separately from risk severity. "
+        "A high-risk score with low confidence means the "
+        "activity should be investigated but the available "
+        "evidence is insufficient for strong attribution or "
+        "confirmation.",
+
+    "evidence_policy":
+        "Missing telemetry reduces confidence and limits "
+        "interpretation. Missing telemetry is not converted "
+        "into positive evidence.",
+
+    "analyst_use":
+        "Scores support triage and prioritisation only. "
+        "They do not establish compromise, attacker intent, "
+        "successful authentication, persistence, lateral "
+        "movement or impact."
+}
+
+
+# ============================================================
 # OUTPUT OBJECT
 # ============================================================
 
@@ -1331,6 +2071,9 @@ output = {
 
     "generated_at":
         current_timestamp(),
+
+    "risk_model_version":
+        RISK_MODEL_VERSION,
 
     "dataset_mode":
         dataset_mode,
@@ -1347,39 +2090,8 @@ output = {
     "alerts":
         alerts,
 
-    "methodology": {
-
-        "description":
-            "Risk and alert prioritisation "
-            "uses behavioural evidence, "
-            "dataset prevalence and validated "
-            "MITRE ATT&CK assessment.",
-
-        "risk_score":
-            "Risk scores are analytical "
-            "prioritisation values and should "
-            "not be interpreted as definitive "
-            "measures of compromise.",
-
-        "benign_handling":
-            "Benign findings are represented "
-            "as informational baseline events "
-            "rather than active threats.",
-
-        "mitre_handling":
-            "MITRE candidate retrieval is "
-            "contextual. Possible techniques "
-            "are not treated as confirmed.",
-
-        "evidence_handling":
-            "Evidence gaps are retained in "
-            "each alert so analysts can see "
-            "what telemetry is unavailable.",
-
-        "dataset_type_source":
-            "security_schema.json",
-
-    },
+    "methodology":
+        methodology,
 }
 
 
@@ -1420,6 +2132,11 @@ print(
 )
 
 print(
+    f"Risk model version: "
+    f"{RISK_MODEL_VERSION}"
+)
+
+print(
     f"Alerts generated: "
     f"{len(alerts)}"
 )
@@ -1446,6 +2163,37 @@ for alert in alerts:
         f"Confidence: "
         f"{alert['confidence']}"
     )
+
+    calculation = alert.get(
+        "risk_calculation",
+        {}
+    )
+
+    components = calculation.get(
+        "components",
+        {}
+    )
+
+    if components:
+
+        print(
+            "  Risk calculation:"
+        )
+
+        for name, component in components.items():
+
+            if not isinstance(
+                component,
+                dict
+            ):
+
+                continue
+
+            print(
+                f"    - {name}: "
+                f"{component.get('score', 0)}/"
+                f"{component.get('maximum', 0)}"
+            )
 
 print()
 

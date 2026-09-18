@@ -2,6 +2,9 @@
 
 An AI-assisted security analysis and SOC-style investigation platform designed to analyse security telemetry, identify suspicious behaviour, validate MITRE ATT&CK techniques against available evidence, and generate analyst-oriented security reports.
 
+
+## Dashboard
+
 ## Project Overview
 
 AI Security Copilot combines security analytics, behavioural analysis, MITRE ATT&CK knowledge, evidence-based validation, and AI-assisted investigation into a single workflow.
@@ -199,38 +202,25 @@ The data preparation pipeline includes:
 The raw dataset is preserved separately from the processed dataset.
 
 ## Project Structure
-
 ```text
 ai-security-copilot/
 │
 ├── app.py
-├── ai_basics.py
 ├── data_cleaner.py
 ├── data_validation.py
+├── log_analyser.py
+├── mitre_evaluator.py
+├── mitre_mapping.py
+├── risk_alert_engine.py
 ├── schema_discovery.py
 ├── security_analysis.py
-├── risk_alert_engine.py
-├── mitre_mapping.py
-├── mitre_evaluator.py
 ├── security_report.py
 ├── test_unlabelled.py
 │
-├── Data/
-│   ├── raw/
-│   └── processed/
-│
 ├── MITRE/
-│   ├── enterprise-attack.json
 │   ├── mitre_technique_index.json
 │   ├── mitre_candidates.json
-│   ├── mitre_evaluated.json
-│   └── mitre_embeddings.npz
-│
-├── security_evidence.json
-├── security_schema.json
-├── security_alerts.json
-├── security_report.json
-├── ai_security_report.txt
+│   └── mitre_evaluated.json
 │
 ├── requirements.txt
 ├── .gitignore
