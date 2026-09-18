@@ -411,6 +411,27 @@ def format_timestamp(value):
         return str(value)
 
 
+def format_display_filename(filename, max_length=34):
+    """Shorten long filenames for the dashboard while preserving the full name in a tooltip."""
+    if not filename:
+        return "No processed dataset"
+
+    filename = str(filename)
+
+    if len(filename) <= max_length:
+        return filename
+
+    path = Path(filename)
+    suffix = path.suffix
+    stem = path.stem
+    available = max_length - len(suffix) - 3
+
+    if available <= 5:
+        return filename[:max_length - 3] + "..."
+
+    return f"{stem[:available]}...{suffix}"
+
+
 def format_duration(seconds):
     if seconds is None:
         return "Not available"
@@ -1468,7 +1489,7 @@ with st.sidebar:
     )
 
     st.caption(
-        "See the signal. Catch the threat."
+        "AI-assisted security analytics, threat investigation and evidence-based triage."
     )
 
     st.divider()
@@ -1499,8 +1520,12 @@ with st.sidebar:
         "### Dataset"
     )
 
-    st.write(
-        f"**{dataset_name}**"
+    display_dataset_name = format_display_filename(dataset_name)
+
+    st.markdown(
+        f'<div title="{dataset_name}" style="font-weight:700; line-height:1.45; '
+        f'word-break:break-word;">{display_dataset_name}</div>',
+        unsafe_allow_html=True,
     )
 
     st.caption(
@@ -1656,8 +1681,7 @@ header_left, header_right = st.columns([7, 1.5])
 with header_left:
     st.title("AI Security Copilot")
     st.caption(
-        "See the signal. Catch the threat. "
-        "AI-powered security intelligence."
+        "AI-assisted security analytics, threat investigation and evidence-based triage."
     )
 
     search_text = st.text_input(
@@ -1668,7 +1692,35 @@ with header_left:
     )
 
 with header_right:
-    st.metric("Active Alerts", active_alerts)
+    st.markdown(
+        f"""
+        <div style="
+            background:{PANEL};
+            border:1px solid {BORDER};
+            border-radius:8px;
+            padding:13px 16px;
+            min-height:90px;
+        ">
+            <div style="
+                color:#9ca8ba;
+                font-size:12px;
+                margin-bottom:8px;
+            ">Active Alerts</div>
+            <div style="
+                color:white;
+                font-size:28px;
+                font-weight:700;
+                line-height:1;
+            ">{active_alerts}</div>
+            <div style="
+                color:{MUTED};
+                font-size:11px;
+                margin-top:7px;
+            ">Requiring attention</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 (
     filtered_findings,
